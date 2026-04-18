@@ -459,8 +459,10 @@
     }
 
     /* ── Timeline / scrubber ──────────────────────────────────── */
+    /* Sits inside .viz (absolute) so it scrolls with the animation region
+       instead of following the viewport. */
     .timeline {
-      position: fixed;
+      position: absolute;
       bottom: 28px;
       left: 50%;
       transform: translateX(-50%);
@@ -537,6 +539,100 @@
       height: 10px;
       transform: translate(-50%, -50%);
       background: var(--ink-ghost);
+    }
+
+    /* ── Done card — shown when the animation finishes ──────── */
+    /* Invites the reader to explore the sections below before the
+       loop restarts. Pauses playback; dismisses on either button. */
+    .done-card {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0.96);
+      max-width: 480px;
+      width: calc(100% - 48px);
+      padding: 32px 34px 26px;
+      background: color-mix(in oklch, var(--paper) 90%, transparent);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--signal-ghost);
+      border-radius: 8px;
+      text-align: center;
+      z-index: 25;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .45s ease, transform .45s cubic-bezier(.2,.7,.2,1);
+      box-shadow: 0 30px 80px oklch(0 0 0 / 0.45);
+    }
+    .done-card.on {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+    }
+    .done-card .done-eyebrow {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: 14px;
+    }
+    .done-card h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-bottom: 12px;
+      text-wrap: balance;
+    }
+    .done-card h3 em { font-style: italic; color: var(--signal); }
+    .done-card p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 17px;
+      color: var(--ink-muted);
+      line-height: 1.45;
+      margin-bottom: 22px;
+      text-wrap: balance;
+    }
+    .done-card .done-ctas {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .done-card .btn-small {
+      padding: 11px 18px;
+      font-size: 13px;
+      font-family: var(--mono);
+      border-radius: 4px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all .18s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .done-card .btn-small.primary {
+      background: var(--signal);
+      color: var(--paper);
+      border-color: var(--signal);
+    }
+    .done-card .btn-small.primary:hover { background: oklch(0.86 0.15 75); transform: translateY(-1px); }
+    .done-card .btn-small.ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--ink-ghost);
+    }
+    .done-card .btn-small.ghost:hover { border-color: var(--signal); color: var(--signal); }
+    .done-card .done-meta {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ink-faint);
+      margin-top: 16px;
+      letter-spacing: 0.08em;
     }
 
     /* ── Coda below the viz ──────────────────────────────────── */
@@ -1235,6 +1331,31 @@
         <g id="labels"></g>
       </svg>
 
+      <!-- Timeline scrubber — anchored to the bottom of .viz so it
+           scrolls with the animation instead of following the viewport. -->
+      <div class="timeline">
+        <button class="tl-btn" id="playBtn" title="play / pause">▶</button>
+        <div class="tl-scrub" id="scrub">
+          <div class="tl-fill" id="tlFill"></div>
+          <div class="tl-thumb" id="tlThumb"></div>
+          <div class="tl-acts" id="tlActs"></div>
+        </div>
+        <span id="tlAct">I · blueprint</span>
+      </div>
+
+      <!-- Done card — shown once Act IV resolves. Pauses playback and
+           nudges the reader to the sections below before looping. -->
+      <div class="done-card" id="doneCard" role="dialog" aria-label="Animation complete">
+        <div class="done-eyebrow">the pyramid is built</div>
+        <h3>There's <em>more below</em>.</h3>
+        <p>What this means for agents, how pyramids stack into vines, and how the work actually gets done.</p>
+        <div class="done-ctas">
+          <a href="#substrate" class="btn-small primary" id="doneExplore">Explore below <span>↓</span></a>
+          <button class="btn-small ghost" id="doneReplay" type="button">Replay <span>↺</span></button>
+        </div>
+        <div class="done-meta" id="doneMeta">restarts in 10s</div>
+      </div>
+
     </div>
 
     <!-- §§ NEW NARRATIVE SECTIONS §§ -->
@@ -1693,17 +1814,6 @@
       </div>
     </div>
   </main>
-
-  <!-- Timeline scrubber -->
-  <div class="timeline">
-    <button class="tl-btn" id="playBtn" title="play / pause">▶</button>
-    <div class="tl-scrub" id="scrub">
-      <div class="tl-fill" id="tlFill"></div>
-      <div class="tl-thumb" id="tlThumb"></div>
-      <div class="tl-acts" id="tlActs"></div>
-    </div>
-    <span id="tlAct">I · blueprint</span>
-  </div>
 
   <!-- TWEAKS PANEL -->
   <div class="tweaks" id="tweaks">
@@ -2632,6 +2742,72 @@
   // Fire all events scheduled at exactly t=0 so the opening state (apex drawn, etc.) is visible on load.
   EVENTS.forEach(ev => { if (ev.at === 0) ev.do(); });
 
+  // ── End-of-animation done card ──────────────────────────────
+  // When t hits 1.0 we pause, show the card inviting the reader to scroll
+  // into the sections below, and start a 10s countdown to auto-loop (if
+  // the loop tweak is on). Either card button cancels the countdown.
+  const doneCard = document.getElementById('doneCard');
+  const doneReplayBtn = document.getElementById('doneReplay');
+  const doneExploreBtn = document.getElementById('doneExplore');
+  const doneMeta = document.getElementById('doneMeta');
+  const AUTO_LOOP_SECONDS = 10;
+  let autoLoopTimer = null;
+  let autoLoopTickTimer = null;
+
+  function showDoneCard() {
+    if (!doneCard) return;
+    doneCard.classList.add('on');
+    clearAutoLoopTimers();
+    if (TWEAKS.loop === 'loop') {
+      doneMeta.style.display = '';
+      let remaining = AUTO_LOOP_SECONDS;
+      doneMeta.textContent = `restarts in ${remaining}s`;
+      autoLoopTickTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          doneMeta.textContent = 'restarting…';
+        } else {
+          doneMeta.textContent = `restarts in ${remaining}s`;
+        }
+      }, 1000);
+      autoLoopTimer = setTimeout(() => {
+        hideDoneCard();
+        restartAnimation();
+      }, AUTO_LOOP_SECONDS * 1000);
+    } else {
+      doneMeta.style.display = 'none';
+    }
+  }
+  function hideDoneCard() {
+    if (!doneCard) return;
+    doneCard.classList.remove('on');
+    clearAutoLoopTimers();
+  }
+  function clearAutoLoopTimers() {
+    if (autoLoopTimer)     { clearTimeout(autoLoopTimer);      autoLoopTimer = null; }
+    if (autoLoopTickTimer) { clearInterval(autoLoopTickTimer); autoLoopTickTimer = null; }
+  }
+  function restartAnimation() {
+    hardReset();
+    setT(0.0001);
+    setT(0);
+    playing = true;
+    playBtn.textContent = '❚❚';
+    lastMs = performance.now();
+  }
+
+  doneReplayBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    hideDoneCard();
+    restartAnimation();
+  });
+  doneExploreBtn?.addEventListener('click', (e) => {
+    // Let the anchor jump happen (smooth) but also dismiss the card and
+    // suppress the auto-loop so the reader isn't yanked back up mid-scroll.
+    hideDoneCard();
+    // Leave `playing` false — the user is engaging below, not with the anim.
+  });
+
   // Animation loop
   function loop(ms) {
     const dt = ms - lastMs;
@@ -2640,28 +2816,13 @@
       const step = dt / durationMs();
       let next = t + step;
       if (next >= 1) {
-        if (TWEAKS.loop === 'loop') {
-          // Hold the finished state briefly, then reset
-          if (t < 1) setT(1);
-          // pause on end for a moment
-          setTimeout(() => {
-            // reset all states
-            hardReset();
-            setT(0.0001);
-            setT(0);
-          }, 1600);
-          playing = false;
-          playBtn.textContent = '↺';
-          setTimeout(() => {
-            if (TWEAKS.loop === 'loop') { playing = true; playBtn.textContent = '❚❚'; }
-          }, 1800);
-          requestAnimationFrame(loop);
-          return;
-        } else {
-          next = 1;
-          playing = false;
-          playBtn.textContent = '▶';
-        }
+        // Reached the end — finalize state, pause, and show the done card.
+        if (t < 1) setT(1);
+        playing = false;
+        playBtn.textContent = '↺';
+        showDoneCard();
+        requestAnimationFrame(loop);
+        return;
       }
       setT(next);
     }
@@ -2717,6 +2878,7 @@
 
   // Controls
   playBtn.addEventListener('click', () => {
+    hideDoneCard();
     if (t >= 0.999) { hardReset(); setT(0); }
     playing = !playing;
     playBtn.textContent = playing ? '❚❚' : '▶';
@@ -2730,6 +2892,7 @@
     return Math.max(0, Math.min(1, x / r.width));
   }
   scrub.addEventListener('mousedown', (e) => {
+    hideDoneCard();
     dragging = true; playing = false; playBtn.textContent = '▶';
     const pct = pctFromEvent(e);
     if (pct < t) { hardReset(); setT(0); }
@@ -2743,6 +2906,7 @@
   });
   window.addEventListener('mouseup', () => dragging = false);
   scrub.addEventListener('touchstart', (e) => {
+    hideDoneCard();
     dragging = true; playing = false; playBtn.textContent = '▶';
     const pct = pctFromEvent(e);
     if (pct < t) { hardReset(); setT(0); }
@@ -2756,6 +2920,7 @@
 
   document.getElementById('replayAll').addEventListener('click', (e) => {
     e.preventDefault();
+    hideDoneCard();
     hardReset();
     setT(0);
     playing = true;
