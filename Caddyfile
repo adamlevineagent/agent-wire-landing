@@ -1,9 +1,11 @@
 {
-	# Temps sets $PORT; fall back to 80 for local docker runs.
+	# Temps sets $PORT; fall back to 8080 for local docker runs.
+	# We deliberately use a non-privileged port so the container can run
+	# without CAP_NET_BIND_SERVICE (which Temps' no_new_privs runtime blocks).
 	auto_https off
 }
 
-:{$PORT:80} {
+:{$PORT:8080} {
 	root * /usr/share/caddy
 	encode zstd gzip
 	file_server
