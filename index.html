@@ -1367,11 +1367,11 @@
       </div>
 
       <div class="substrate-lede">
-        <div class="big">Any complex project needs a <em>shared, living model</em> of what's true right now — one every agent can read, extend, contest, and trust.</div>
+        <div class="big">Any complex project needs one <em>shared, up-to-date map</em> of what's true — one every agent can read, extend, contest, and trust.</div>
         <div class="side">
           Agents today pass messages. They hope the next one remembered. They rebuild context from scratch every morning.
           <br><br>
-          A <em>pyramid</em> is the primitive that replaces all of that: the recursive, transformable artifact that holds the current state of understanding, with every claim traceable to its source.
+          A <em>pyramid</em> holds the current state of understanding in one place. It nests, rewrites itself, and keeps every claim traceable to its source. Every agent works on the same artifact.
         </div>
       </div>
 
@@ -1491,7 +1491,7 @@
         <div class="claim">
           <div class="n">· 02</div>
           <h4>Every contribution is a <em>question with sources.</em></h4>
-          <p>Agents add by citing bedrock or opening a sub-question. The shape of thought is enforced. "I think" has nowhere to live.</p>
+          <p>Agents add by citing bedrock or opening a sub-question. Every claim arrives with a receipt. The shape of thought is the shape of evidence.</p>
         </div>
         <div class="claim">
           <div class="n">· 03</div>
@@ -1511,7 +1511,7 @@
       <div class="section-head">
         <span class="tag moss">§ how it scales</span>
         <h2>Bedrock can be <span class="moss-em">anything citable</span> — a file, a grown pyramid, or both at once.</h2>
-        <p>The base of a pyramid is any artifact with an address: a document, a dataset, a codebase, or another pyramid someone else has already built. Stack pyramids whose bedrock is mixed — raw files <em>and</em> other pyramids — and you get a <em>vine.</em> Vines can become bedrock for bigger vines. A personal tool becomes a shared network one citation at a time.</p>
+        <p>The base of a pyramid is anything you can cite: a document, a dataset, a codebase, or another pyramid someone already built. Stack pyramids whose bedrock mixes raw files <em>and</em> other pyramids — that's a <em>vine.</em> Vines become bedrock for bigger vines. A personal tool becomes a shared network one citation at a time.</p>
       </div>
 
       <div class="vines-diagram">
@@ -1721,7 +1721,7 @@
       <div class="section-head">
         <span class="tag plum">§ how the work gets done</span>
         <h2>Bring a key. Bring a GPU. <span class="plum-em">Join the cooperative.</span> Do all three.</h2>
-        <p>Pyramids are massively parallel by nature — every leaf is independent work. The bottleneck is compute. You combine these three sources however you want: your key covers the models you need, your GPU handles what's private, and the cooperative absorbs the rest. Anything you don't use yourself becomes credits you can spend later.</p>
+        <p>Pyramids are massively parallel by nature — every leaf is independent work. The bottleneck is compute. Combine these three sources however you want: your key covers the models you need, your GPU handles what's private, the cooperative absorbs the rest. Bridging your key or GPU into the co-op earns credits when the network routes others' work through them — credits you spend when your own build needs more concurrency than you can muster alone.</p>
       </div>
 
       <div class="compute-grid">
@@ -1733,8 +1733,7 @@
           <ul>
             <li>One key · every OpenRouter-hosted model</li>
             <li>Pay per token to OpenRouter directly</li>
-            <li>Idle capacity on your key earns cooperative credits</li>
-            <li><span class="muted">more providers landing soon</span></li>
+            <li>Bridge the key into the co-op — earn credits whenever the network routes others' work through it</li>
           </ul>
           <div class="speedbar">
             <span>solo throughput</span>
@@ -1745,13 +1744,13 @@
         <div class="compute-card">
           <div class="num">· 02 · a gpu</div>
           <h3>Bridge in <em>Ollama</em> (or any OpenAI-compatible endpoint).</h3>
-          <div class="lede">Point at a local Ollama install or any OpenAI-compatible API — your own hardware, your own models, nothing leaves the machine.</div>
+          <div class="lede">Point at a local Ollama install or any OpenAI-compatible API — your own hardware, your own models, everything stays on the box.</div>
           <div class="cmd">agent-wire gpu add http://localhost:11434</div>
           <ul>
             <li>Ollama out of the box · any OpenAI-compatible API works too</li>
             <li>Add several endpoints — they pool into one fleet</li>
             <li>Private by default · your bedrock stays on the box</li>
-            <li>Idle GPU time earns cooperative credits</li>
+            <li>Lend the GPU to the co-op — earn credits whenever others' work runs on your hardware</li>
           </ul>
           <div class="speedbar">
             <span>fleet throughput</span>
@@ -1763,12 +1762,12 @@
           <div class="badge">multiplier</div>
           <div class="num">· 03 · the co-op</div>
           <h3>Join the <em>compute cooperative.</em></h3>
-          <div class="lede">When your key or your GPU is idle, you contribute credits. When you're building, credits buy concurrency across the network. Leaf-parallel, often 40×+ faster than alone.</div>
+          <div class="lede">Earn credits by bridging your key or your GPU into the co-op — others' work runs through them and pays you. Spend credits when your own build needs concurrency the network can give you. Every sub-question runs in parallel; at network scale, that's 40×+ faster than building alone.</div>
           <div class="cmd">agent-wire coop join</div>
           <ul>
-            <li>Cloudflare-tunneled · no ports, no public IPs, no trust in the middle</li>
-            <li>Every worker is signed · every leaf carries a provenance receipt</li>
-            <li>Peer traffic is end-to-end · the network never sees your bedrock</li>
+            <li>Cloudflare-tunneled · outbound-only · every hop cryptographically verified</li>
+            <li>Every worker is signed · every answer carries a receipt of who did the work</li>
+            <li>Peer traffic is end-to-end · your bedrock stays between you and the worker you chose</li>
             <li>One ledger balances credits from keys and GPUs over time</li>
           </ul>
           <div class="speedbar">
@@ -1797,7 +1796,7 @@
       </div>
 
       <div class="privacy-note">
-        <strong>Private by construction.</strong> Every node talks through Cloudflare tunnels — no inbound ports, no public addresses, no trust in the network. Your bedrock never touches a server you don't own. Workers see only the specific leaf question they've been asked to answer, and sign their reply. This is how you share compute without sharing context.
+        <strong>Private by construction.</strong> Every node talks through Cloudflare tunnels — outbound-only, with every hop cryptographically verified. Your bedrock lives on your hardware alone. Workers see only the one leaf question they've been asked to answer, and sign their reply. This is how compute gets shared while context stays local.
       </div>
     </section>
 
@@ -1991,14 +1990,14 @@
     {
       num: 'ACT · ONE',
       head: '<em>“What is this and why should I care?”</em>',
-      sub:  'A question becomes the apex of a pyramid. Its shape is the question, broken into smaller questions — no source material yet, just the blueprint.',
+      sub:  'A question becomes the apex of a pyramid. Its shape is the question, broken into smaller questions. Evidence comes next.',
       startPct: 0,
       endPct: 0.22
     },
     {
       num: 'ACT · TWO',
       head: 'Reach into <em>bedrock</em>. Evidence fills the pyramid.',
-      sub:  'Leaves pull evidence from text, code, data — and from other pyramids. Answers climb. Peers web. The apex resolves.',
+      sub:  'Leaves pull evidence from text, code, data — and from other pyramids. Answers climb. Neighboring questions reinforce each other. The apex resolves.',
       startPct: 0.22,
       endPct: 0.58
     },
@@ -2013,7 +2012,7 @@
     {
       num: 'ACT · FOUR · WHEN A FILE CHANGES',
       head: 'The pyramid is <span class="moss-em">alive</span>.',
-      sub:  'A file changes. At each touched node, an LLM decides: rewrite, or <em>fine · stop</em> — and picks its own next hops. The ripple dies as conclusions stabilize. (DADBEAR.)',
+      sub:  'A file changes. At each touched node, an LLM decides: rewrite, or mark it checked and stop — and picks its own next hops. The ripple ends when conclusions hold steady. (DADBEAR.)',
       startPct: 0.80,
       endPct: 1.0,
       color: 'cyan'
