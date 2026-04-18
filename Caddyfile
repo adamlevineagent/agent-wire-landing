@@ -1,10 +1,14 @@
 {
-	# Temps sets $PORT from the Application Port UI field; fall back to 8080
-	# for local docker runs.
+	# Hardcoded :8080. Temps injects PORT=3000 as an env var independently
+	# of the Application Port UI field (the UI field controls reverse-proxy
+	# routing target, not the env var), so reading $PORT would make Caddy
+	# listen on 3000 while Temps routes to 8080 — no connectivity.
+	# Pinning to :8080 matches the Dockerfile EXPOSE and the Application
+	# Port UI setting, which is what gets routed.
 	auto_https off
 }
 
-:{$PORT:8080} {
+:8080 {
 	root * /usr/share/caddy
 	encode zstd gzip
 	file_server
