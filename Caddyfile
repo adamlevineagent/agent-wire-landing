@@ -1,11 +1,12 @@
 {
-	# Temps sets $PORT; fall back to 8080 for local docker runs.
-	# We deliberately use a non-privileged port so the container can run
-	# without CAP_NET_BIND_SERVICE (which Temps' no_new_privs runtime blocks).
+	# Hardcoded :8080 (not $PORT). Temps injects PORT based on its own UI
+	# field, but separately detects the container's EXPOSE for routing —
+	# which means reading $PORT can produce a mismatch. Pinning the listen
+	# port guarantees Caddy speaks on exactly the port we EXPOSE.
 	auto_https off
 }
 
-:{$PORT:8080} {
+:8080 {
 	root * /usr/share/caddy
 	encode zstd gzip
 	file_server
