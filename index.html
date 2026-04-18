@@ -1,0 +1,2844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Wire — understanding pyramids</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================
+       AGENT WIRE — landing, minimalist
+       One visual. One question. One thesis: pyramids.
+       ========================================================== */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:         oklch(0.96 0.01 85);
+      --ink-dim:     oklch(0.80 0.015 85);
+      --ink-muted:   oklch(0.58 0.015 85);
+      --ink-faint:   oklch(0.40 0.012 85);
+      --ink-ghost:   oklch(0.26 0.008 85);
+      --ink-void:    oklch(0.20 0.005 85);
+
+      --paper:       oklch(0.14 0.008 75);
+      --paper-1:     oklch(0.17 0.010 75);
+      --paper-2:     oklch(0.21 0.012 75);
+
+      --signal:      oklch(0.80 0.16 75);      /* amber — questions, the apex, the new */
+      --signal-dim:  oklch(0.62 0.12 75);
+      --signal-ghost:oklch(0.38 0.09 75);
+      --signal-soft: oklch(0.80 0.16 75 / 0.12);
+
+      --moss:        oklch(0.76 0.12 150);     /* evidence — things that got satisfied */
+      --moss-dim:    oklch(0.56 0.10 150);
+      --moss-ghost:  oklch(0.34 0.07 150);
+
+      --plum:        oklch(0.72 0.14 330);     /* the next question, the new branch */
+      --plum-dim:    oklch(0.52 0.11 330);
+      --plum-ghost:  oklch(0.32 0.08 330);
+
+      --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+      --sans: 'Inter', -apple-system, sans-serif;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ambient vignette */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(900px 600px at 50% 30%, oklch(0.80 0.16 75 / 0.05), transparent 70%),
+        radial-gradient(700px 500px at 50% 85%, oklch(0.72 0.14 330 / 0.03), transparent 70%);
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.2;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.15  0 0 0 0 0.13  0 0 0 0 0.10  0 0 0 0.05 0'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+      mix-blend-mode: overlay;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--signal); color: var(--paper); }
+
+    /* ── Top bar: brand + replay ─────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 30;
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      color: var(--ink-muted);
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .brand .glyph {
+      width: 13px; height: 13px;
+      border: 1.5px solid var(--signal);
+      transform: rotate(45deg);
+      position: relative;
+    }
+    .brand .glyph::before {
+      content: '';
+      position: absolute; inset: 3px;
+      background: var(--signal);
+    }
+    .topbar .meta {
+      display: inline-flex;
+      gap: 18px;
+      color: var(--ink-faint);
+    }
+
+    /* ── Main stage ────────────────────────────────────────────── */
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+    }
+
+    .viz {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      min-height: 720px;
+      display: flex;
+      align-items: flex-end;            /* bottom-align so caption at top has its own space */
+      justify-content: center;
+      padding-top: 320px;                /* reserved caption zone above the pyramid */
+      padding-bottom: 80px;              /* leave room for the timeline */
+    }
+
+    .viz svg {
+      width: min(100%, 1100px);
+      height: 100%;
+      max-height: 720px;
+      display: block;
+    }
+
+    /* ── Act caption — overlays the viz ───────────────────────── */
+    .caption {
+      position: absolute;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      max-width: 640px;
+      padding: 0 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .act-num {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: 18px;
+      opacity: 0;
+      transition: opacity .5s, color .5s;
+    }
+    .act-num.plum { color: var(--plum); }
+    .act-num.cyan { color: var(--moss); }
+    .act-num.in { opacity: 1; }
+    .caption h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(34px, 4.4vw, 58px);
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      text-wrap: balance;
+      min-height: 1.2em;
+    }
+    .caption h1 em { font-style: italic; color: var(--signal); }
+    .caption h1 .plum-em { font-style: italic; color: var(--plum); }
+    .caption h1 .moss-em { font-style: italic; color: var(--moss); }
+    .caption .sub {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink-muted);
+      font-size: clamp(16px, 1.6vw, 20px);
+      margin-top: 14px;
+      line-height: 1.4;
+      min-height: 1.4em;
+    }
+    .caption h1 .wipe,
+    .caption .sub .wipe {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .55s ease, transform .55s cubic-bezier(.2,.7,.2,1);
+    }
+    .caption h1 .wipe.in,
+    .caption .sub .wipe.in {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ── SVG classes ──────────────────────────────────────────── */
+    .node-q {
+      fill: var(--paper-1);
+      stroke: var(--signal);
+      stroke-width: 1.5;
+      opacity: 0;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .node-q.drawn {
+      opacity: 1;
+    }
+    .node-q.answered {
+      fill: var(--signal-soft);
+      stroke: var(--signal);
+    }
+    .node-q.apex {
+      fill: var(--paper-1);
+      stroke: var(--signal);
+      stroke-width: 2;
+    }
+    .node-q.apex.drawn {
+      opacity: 1;
+    }
+    .node-q.apex.answered {
+      fill: var(--signal);
+      stroke: var(--signal);
+    }
+    .node-q.new {
+      stroke: var(--plum);
+    }
+    .node-q.new.answered {
+      fill: color-mix(in oklch, var(--plum) 18%, var(--paper-1));
+      stroke: var(--plum);
+    }
+
+    .node-bedrock {
+      fill: var(--paper-1);
+      stroke: var(--ink-ghost);
+      stroke-width: 1;
+      opacity: 0;
+    }
+    .node-bedrock.drawn { opacity: 1; }
+    .node-bedrock.cited {
+      fill: var(--moss-ghost);
+      stroke: var(--moss);
+    }
+    .node-bedrock.cited-new {
+      fill: color-mix(in oklch, var(--plum) 20%, var(--paper-1));
+      stroke: var(--plum);
+    }
+
+    .edge {
+      stroke: var(--ink-ghost);
+      stroke-width: 1;
+      fill: none;
+      opacity: 0;
+    }
+    .edge.drawn {
+      opacity: 0.7;
+    }
+    /* An edge that has carried evidence upward. The blueprint lights up moss. */
+    .edge.climbing {
+      stroke: var(--moss);
+      stroke-width: 1.4;
+      opacity: 0.85;
+    }
+    .edge.climbing.new { stroke: var(--plum); }
+
+    .edge.evidence {
+      stroke: var(--moss);
+      stroke-width: 1;
+      opacity: 0;
+    }
+    .edge.evidence.drawn {
+      opacity: 0.65;
+    }
+    .edge.evidence.new { stroke: var(--plum); }
+
+    /* Climb-edges: (unused — blueprint edges get .climbing instead) */
+    .edge.climb {
+      stroke: var(--moss);
+      stroke-width: 1.3;
+      fill: none;
+      opacity: 0;
+    }
+    .edge.climb.drawn {
+      opacity: 0.78;
+    }
+    .edge.climb.new { stroke: var(--plum); }
+
+    .edge.web {
+      stroke: var(--moss-dim);
+      stroke-width: 0.8;
+      stroke-dasharray: 3 3 !important;
+      opacity: 0;
+    }
+    .edge.web.drawn { opacity: 0.55; }
+    .edge.web.new { stroke: var(--plum); }
+
+    .node-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      fill: var(--ink-faint);
+      opacity: 0;
+      pointer-events: none;
+      text-anchor: middle;
+    }
+    .node-label.drawn { opacity: 0.85; }
+    .node-label.answered { fill: var(--ink-dim); }
+    .node-label.apex {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 13px;
+      fill: var(--signal);
+      opacity: 0;
+      display: none;   /* caption headline carries the apex question — no duplicate label */
+    }
+    .node-label.apex.drawn { opacity: 1; }
+    .node-label.new {
+      fill: var(--plum);
+    }
+
+    .bedrock-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      fill: var(--ink-faint);
+      opacity: 0;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    .bedrock-label.drawn { opacity: 0.9; }
+    .bedrock-label.cited { fill: var(--moss); }
+    .bedrock-label.cited-new { fill: var(--plum); }
+
+    .layer-rule {
+      stroke: var(--ink-ghost);
+      stroke-dasharray: 2 5;
+      opacity: 0.25;
+    }
+    .layer-tag {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      fill: var(--ink-muted);
+      text-transform: uppercase;
+    }
+
+    /* pulse on apex when answered */
+    .pulse {
+      fill: var(--signal);
+      opacity: 0;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .pulse.on {
+      animation: pulse 1.8s ease-out forwards;
+    }
+    @keyframes pulse {
+      0%   { opacity: 0.5; transform: scale(1); }
+      100% { opacity: 0;   transform: scale(3); }
+    }
+
+    /* ── DADBEAR (Act IV) classes ───────────────────────────── */
+    /* A bedrock file changed — flashes to attract attention */
+    .node-bedrock.changed {
+      animation: bedrock-flash 1.6s ease-in-out 2;
+      stroke: var(--moss);
+      stroke-width: 1.6;
+    }
+    @keyframes bedrock-flash {
+      0%, 100% { fill: var(--moss-ghost); }
+      50%      { fill: var(--moss); }
+    }
+    /* a small "check pulse" ring that emanates from a node being checked */
+    .check-ring {
+      fill: none;
+      stroke: var(--moss);
+      stroke-width: 1.2;
+      opacity: 0;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .check-ring.on {
+      animation: check-ring-anim 1.2s ease-out forwards;
+    }
+    @keyframes check-ring-anim {
+      0%   { opacity: 0.8; transform: scale(0.6); }
+      100% { opacity: 0;   transform: scale(2.6); }
+    }
+    /* "checked · fine" marker */
+    .fine-mark {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      fill: var(--moss);
+      opacity: 0;
+      text-anchor: middle;
+      pointer-events: none;
+      transition: opacity .3s;
+    }
+    .fine-mark.on { opacity: 0.85; }
+    /* stale rewrite flash */
+    .node-q.rewriting {
+      animation: rewrite-flash 1.4s ease-out 1;
+    }
+    @keyframes rewrite-flash {
+      0%   { stroke: var(--signal); stroke-width: 1.5; }
+      35%  { stroke: var(--moss);   stroke-width: 3; }
+      100% { stroke: var(--moss);   stroke-width: 1.8; }
+    }
+    .node-q.rewritten {
+      stroke: var(--moss);
+    }
+    .node-q.rewritten.answered {
+      fill: color-mix(in oklch, var(--moss) 18%, var(--paper-1));
+    }
+    /* node was checked and was fine — softer indicator */
+    .node-q.fine {
+      opacity: 0.55;
+    }
+    /* LLM is deciding right now — amber halo + subtle glow on the node */
+    .thinking-ring {
+      fill: none;
+      stroke: var(--signal);
+      stroke-width: 1.4;
+      opacity: 0;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .thinking-ring.on {
+      animation: thinking-pulse 0.85s ease-out forwards;
+    }
+    @keyframes thinking-pulse {
+      0%   { opacity: 0;    transform: scale(0.7); }
+      30%  { opacity: 0.95; transform: scale(1.25); stroke-width: 1.6; }
+      70%  { opacity: 0.55; transform: scale(1.95); stroke-width: 1.3; }
+      100% { opacity: 0;    transform: scale(2.5);  stroke-width: 1.2; }
+    }
+    .node-q.thinking {
+      filter: drop-shadow(0 0 5px var(--signal));
+    }
+    /* Ripple edge — brief moss flash as the intelligence picks the next hop */
+    .edge.rippling {
+      animation: edge-ripple-flash 0.6s ease-out 1;
+    }
+    @keyframes edge-ripple-flash {
+      0%   { opacity: 0.55; stroke-width: 1.2; }
+      45%  { opacity: 1.0;  stroke-width: 2.4; stroke: var(--moss); }
+      100% { opacity: 0.7;  stroke-width: 1.2; }
+    }
+
+    /* ── Timeline / scrubber ──────────────────────────────────── */
+    .timeline {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 16px;
+      background: color-mix(in oklch, var(--paper) 75%, transparent);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+    .tl-btn {
+      appearance: none;
+      background: transparent;
+      border: none;
+      color: var(--ink-dim);
+      cursor: pointer;
+      padding: 4px 6px;
+      font: inherit;
+      transition: color .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tl-btn:hover { color: var(--signal); }
+    .tl-scrub {
+      position: relative;
+      width: clamp(220px, 30vw, 340px);
+      height: 4px;
+      background: var(--ink-void);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .tl-fill {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      width: 0;
+      background: var(--signal);
+      border-radius: 999px;
+      transition: width .15s linear;
+    }
+    .tl-fill.act-3 { background: var(--plum); }
+    .tl-fill.act-4 { background: var(--moss); }
+    .tl-thumb {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translate(-50%, -50%);
+      width: 10px; height: 10px;
+      background: var(--ink);
+      border-radius: 50%;
+      pointer-events: none;
+      transition: left .15s linear;
+    }
+    .tl-acts {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .tl-act-mark {
+      position: absolute;
+      top: 50%;
+      width: 2px;
+      height: 10px;
+      transform: translate(-50%, -50%);
+      background: var(--ink-ghost);
+    }
+
+    /* ── Coda below the viz ──────────────────────────────────── */
+    .coda {
+      position: relative;
+      z-index: 1;
+      padding: 100px 24px 120px;
+      display: flex;
+      justify-content: center;
+    }
+    .coda-inner {
+      max-width: 760px;
+      text-align: center;
+    }
+    .coda .tag {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: 20px;
+    }
+    .coda h2 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(38px, 4.6vw, 62px);
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-bottom: 24px;
+      text-wrap: balance;
+    }
+    .coda h2 em {
+      font-style: italic;
+      color: var(--signal);
+    }
+    .coda p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(19px, 1.8vw, 23px);
+      color: var(--ink-muted);
+      line-height: 1.5;
+      margin-bottom: 36px;
+      max-width: 38em;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .ctas {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      font-family: var(--mono);
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .btn-primary {
+      background: var(--signal);
+      color: var(--paper);
+      border-color: var(--signal);
+    }
+    .btn-primary:hover { background: oklch(0.86 0.15 75); transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--ink-ghost);
+    }
+    .btn-ghost:hover { border-color: var(--signal); color: var(--signal); }
+
+    /* nested pyramid inset — for the coda */
+    .nest-inset {
+      margin: 20px auto 36px;
+      max-width: 480px;
+    }
+
+    /* ── Narrative sections below the animation ──────────────── */
+    .section {
+      position: relative;
+      z-index: 1;
+      padding: 120px 32px 80px;
+      max-width: 1240px;
+      margin: 0 auto;
+      border-top: 1px solid var(--ink-ghost);
+    }
+    .section-head {
+      max-width: 880px;
+      margin-bottom: 56px;
+    }
+    .section-head .tag {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: 20px;
+      display: block;
+    }
+    .section-head .tag.moss { color: var(--moss); }
+    .section-head .tag.plum { color: var(--plum); }
+    .section-head h2 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(36px, 4.4vw, 56px);
+      line-height: 1.06;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-bottom: 20px;
+      text-wrap: balance;
+    }
+    .section-head h2 em { font-style: italic; color: var(--signal); }
+    .section-head h2 .moss-em { font-style: italic; color: var(--moss); }
+    .section-head h2 .plum-em { font-style: italic; color: var(--plum); }
+    .section-head p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(18px, 1.7vw, 22px);
+      color: var(--ink-muted);
+      line-height: 1.55;
+      max-width: 40em;
+    }
+
+    /* ── § substrate — hero row ───────────────────────────────── */
+    .substrate-lede {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 56px;
+      margin: 8px 0 44px;
+      align-items: start;
+    }
+    .substrate-lede .big {
+      font-family: var(--serif);
+      font-size: 52px;
+      line-height: 1.08;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      font-weight: 400;
+      text-wrap: balance;
+    }
+    .substrate-lede .big em {
+      font-style: italic;
+      color: var(--signal);
+    }
+    .substrate-lede .side {
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--ink-dim);
+      padding-top: 18px;
+      border-top: 1px solid var(--ink-ghost);
+    }
+    .substrate-lede .side em {
+      font-style: normal;
+      color: var(--signal);
+      font-weight: 500;
+    }
+
+    .substrate-ring {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr 1fr;
+      gap: 36px;
+      margin: 24px 0 48px;
+      align-items: stretch;
+    }
+    .agent-col { display: grid; gap: 14px; align-content: start; }
+    .agent-col.center { align-self: center; }
+    .col-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--ink-ghost);
+      margin-bottom: 4px;
+    }
+    .col-title.center { text-align: center; color: var(--signal); border-bottom-color: var(--signal-ghost); }
+    .agent-card {
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 3px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--ink-dim);
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      min-height: 54px;
+    }
+    .agent-card .diamond {
+      width: 12px; height: 12px;
+      border: 1.5px solid var(--signal);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .agent-card .diamond.moss { border-color: var(--moss); }
+    .agent-card .diamond.plum { border-color: var(--plum); }
+    .agent-card .body { display: grid; gap: 3px; min-width: 0; }
+    .agent-card .who {
+      color: var(--ink);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+    .agent-card .what {
+      color: var(--ink-faint);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .substrate-center {
+      background: var(--paper-1);
+      border: 1px solid var(--signal-ghost);
+      border-radius: 4px;
+      padding: 22px 22px 18px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 320px;
+    }
+    .substrate-center svg { width: 100%; max-width: 260px; }
+    .substrate-center .cap {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--ink-faint);
+      letter-spacing: 0.12em;
+      text-align: center;
+      margin-top: 14px;
+    }
+
+    .substrate-claims {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-top: 40px;
+    }
+    .claim {
+      padding: 22px 4px 0;
+      border-top: 1px solid var(--ink-ghost);
+    }
+    .claim .n {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: 0.2em;
+      color: var(--signal);
+      margin-bottom: 10px;
+    }
+    .claim h4 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 22px;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .claim h4 em { font-style: italic; color: var(--signal); }
+    .claim p {
+      font-family: var(--sans);
+      font-size: 15px;
+      color: var(--ink-muted);
+      line-height: 1.5;
+    }
+
+    /* ── § vines ──────────────────────────────────────────────── */
+    .vines-diagram {
+      position: relative;
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      padding: 48px 40px;
+      margin: 16px 0 36px;
+      overflow: hidden;
+    }
+    .vines-diagram svg { width: 100%; height: auto; display: block; }
+    .vines-legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 24px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      color: var(--ink-muted);
+    }
+    .vines-legend > div { display: grid; gap: 4px; }
+    .vines-legend .k {
+      color: var(--moss);
+      letter-spacing: 0.12em;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .vines-legend .v { color: var(--ink-dim); font-size: 15px; font-family: var(--serif); font-style: italic; }
+
+    /* ── § compute ────────────────────────────────────────────── */
+    .compute-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 8px 0 44px;
+    }
+    .compute-card {
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      padding: 28px 26px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      min-height: 380px;
+    }
+    .compute-card.featured {
+      border-color: var(--plum);
+      background: color-mix(in oklch, var(--plum) 4%, var(--paper-1));
+    }
+    .compute-card .badge {
+      position: absolute;
+      top: -1px; right: 20px;
+      transform: translateY(-50%);
+      background: var(--paper);
+      color: var(--plum);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: 0.18em;
+      padding: 2px 8px;
+      text-transform: uppercase;
+    }
+    .compute-card .num {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--signal);
+      letter-spacing: 0.22em;
+    }
+    .compute-card.featured .num { color: var(--plum); }
+    .compute-card h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 30px;
+      line-height: 1.1;
+      color: var(--ink);
+      letter-spacing: -0.015em;
+    }
+    .compute-card h3 em { font-style: italic; color: var(--signal); }
+    .compute-card.featured h3 em { color: var(--plum); }
+    .compute-card .lede {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 17px;
+      color: var(--ink-muted);
+      line-height: 1.4;
+    }
+    .compute-card ul {
+      list-style: none;
+      padding: 0;
+      margin-top: auto;
+      border-top: 1px solid var(--ink-ghost);
+      padding-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+    .compute-card li {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink-dim);
+      line-height: 1.4;
+      padding-left: 16px;
+      position: relative;
+    }
+    .compute-card li::before {
+      content: '·';
+      position: absolute;
+      left: 4px;
+      color: var(--signal);
+    }
+    .compute-card.featured li::before { color: var(--plum); }
+    .compute-card .cmd {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--moss);
+      background: var(--paper-2);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 3px;
+      padding: 10px 12px;
+      letter-spacing: 0.02em;
+    }
+    .speedbar {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 12px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--ink-faint);
+    }
+    .speedbar .track {
+      height: 6px;
+      background: var(--paper-2);
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+    .speedbar .fill {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      background: var(--ink-faint);
+    }
+    .speedbar .fill.fast { background: var(--plum); }
+    .compute-tradeoff {
+      display: grid;
+      gap: 10px;
+      padding: 20px 24px;
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      margin-bottom: 48px;
+    }
+    .compute-tradeoff .tline {
+      display: grid;
+      grid-template-columns: 150px 1fr auto;
+      gap: 20px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 13.5px;
+    }
+    .compute-tradeoff .tlabel { color: var(--ink-dim); letter-spacing: 0.04em; }
+    .compute-tradeoff .tval { color: var(--ink); font-family: var(--serif); font-style: italic; font-size: 16.5px; }
+    .compute-tradeoff .tbar { height: 8px; background: var(--paper-2); border-radius: 999px; position: relative; overflow: hidden; }
+    .compute-tradeoff .tbar-fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--signal); border-radius: 999px; }
+    .compute-tradeoff .tbar-fill.plum { background: var(--plum); }
+    .compute-tradeoff .tbar-fill.moss { background: var(--moss); }
+
+    .privacy-note {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink-muted);
+      font-size: 17px;
+      line-height: 1.5;
+      max-width: 56em;
+      padding-left: 18px;
+      border-left: 1px solid var(--moss);
+    }
+    .privacy-note strong { color: var(--moss); font-weight: 500; font-style: normal; }
+    .compute-card li .muted { color: var(--ink-faint); font-style: italic; }
+
+    /* ── § ship it / open source ──────────────────────────── */
+    .ship-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 20px;
+      margin-top: 8px;
+    }
+    .ship-card {
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      padding: 28px 28px 26px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 18px;
+      align-items: center;
+      text-decoration: none;
+      color: var(--ink);
+      transition: border-color 150ms, background 150ms;
+    }
+    .ship-card:hover { border-color: var(--ink-dim); background: var(--paper-2); }
+    .ship-icon { color: var(--ink); opacity: 0.8; }
+    .ship-body .ship-k {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      letter-spacing: 0.18em;
+      color: var(--moss);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .ship-body .ship-v {
+      font-family: var(--serif);
+      font-size: 17px;
+      color: var(--ink-dim);
+      font-style: italic;
+      line-height: 1.4;
+    }
+    .ship-cta {
+      font-family: var(--mono);
+      font-size: 13.5px;
+      letter-spacing: 0.14em;
+      color: var(--signal);
+      padding: 8px 14px;
+      border: 1px solid var(--signal);
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .ship-bins {
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      padding: 24px 26px 22px;
+    }
+    .ship-bins-title {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      letter-spacing: 0.22em;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .bin-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .bin {
+      display: grid;
+      gap: 3px;
+      padding: 12px 10px;
+      border: 1px solid var(--ink-ghost);
+      border-radius: 3px;
+      text-decoration: none;
+      color: var(--ink);
+      background: var(--paper-0);
+      transition: border-color 150ms, background 150ms;
+    }
+    .bin:hover { border-color: var(--signal); background: var(--paper-2); }
+    .bin-os {
+      font-family: var(--serif);
+      font-size: 17px;
+      letter-spacing: -0.01em;
+    }
+    .bin-arch {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      color: var(--ink-muted);
+    }
+    .bin-hint {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--ink-muted);
+    }
+    .bin-hint code {
+      color: var(--ink-dim);
+      background: var(--paper-0);
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--ink-ghost);
+    }
+
+    @media (max-width: 900px) {
+      .substrate-diagram { grid-template-columns: 1fr; gap: 24px; }
+      .substrate-col { grid-template-rows: none !important; }
+      .agent-card .arrow { display: none; }
+      .substrate-claims { grid-template-columns: repeat(2, 1fr); }
+      .compute-grid { grid-template-columns: 1fr; }
+      .vines-legend { grid-template-columns: 1fr; gap: 16px; }
+      .ship-grid { grid-template-columns: 1fr; }
+      .bin-row { grid-template-columns: 1fr; }
+      .ship-card { grid-template-columns: auto 1fr; }
+      .ship-card .ship-cta { grid-column: 1 / -1; justify-self: start; }
+    }
+
+    /* Tweaks panel */
+    .tweaks {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 200;
+      width: 260px;
+      background: var(--paper-1);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink-dim);
+      box-shadow: 0 14px 40px oklch(0 0 0 / 0.5);
+      display: none;
+      overflow: hidden;
+    }
+    .tweaks.on { display: block; }
+    .tweaks-title {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--ink-ghost);
+      color: var(--signal);
+      font-size: 12.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      background: color-mix(in oklch, var(--signal) 8%, var(--paper-2));
+    }
+    .tweaks-body { padding: 12px 14px 14px; display: grid; gap: 12px; }
+    .tweak-group .label {
+      font-size: 11.5px;
+      color: var(--ink-faint);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .seg {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      background: var(--paper-2);
+      border: 1px solid var(--ink-ghost);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .seg button {
+      appearance: none;
+      background: transparent;
+      color: var(--ink-muted);
+      font: inherit;
+      font-size: 12.5px;
+      padding: 8px 9px;
+      border: none;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .seg button:hover { color: var(--ink); }
+    .seg button.active {
+      background: var(--signal);
+      color: var(--paper);
+    }
+
+    @media (max-width: 720px) {
+      .caption { top: 72px; }
+      .viz { min-height: 620px; }
+      .topbar { padding: 14px 18px; font-size: 12.5px; }
+      .topbar .meta { display: none; }
+      .timeline { bottom: 18px; padding: 8px 12px; gap: 12px; }
+      .tl-scrub { width: 160px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <a href="#" class="brand"><span class="glyph"></span>agent-wire.com</a>
+    <div class="meta">
+      <span>the network of understanding pyramids</span>
+    </div>
+  </div>
+
+  <!-- Stage -->
+  <main class="stage">
+    <div class="viz">
+
+      <!-- Act caption -->
+      <div class="caption">
+        <div class="act-num" id="actNum">ACT · ONE</div>
+        <h1 id="captionHead"></h1>
+        <div class="sub" id="captionSub"></div>
+      </div>
+
+      <!-- The pyramid (single SVG) -->
+      <svg id="pyramid" viewBox="0 60 1000 720" preserveAspectRatio="xMidYMid meet" aria-label="An understanding pyramid being built">
+
+        <!-- Layer rules + tags -->
+        <g>
+          <line class="layer-rule" x1="80"  y1="190" x2="920" y2="190"/>
+          <line class="layer-rule" x1="80"  y1="320" x2="920" y2="320"/>
+          <line class="layer-rule" x1="80"  y1="470" x2="920" y2="470"/>
+          <line class="layer-rule" x1="80"  y1="620" x2="920" y2="620"/>
+
+          <text class="layer-tag" x="82" y="98">APEX · QUESTION</text>
+          <text class="layer-tag" x="82" y="210">QUESTIONS</text>
+          <text class="layer-tag" x="82" y="340">SUB-QUESTIONS</text>
+          <text class="layer-tag" x="82" y="490">LEAF QUESTIONS</text>
+          <text class="layer-tag" x="82" y="640">BEDROCK</text>
+        </g>
+
+        <!-- Edges (question tree). Order matters for draw animation; order in DOM doesn't. -->
+        <g id="edges"></g>
+        <g id="evidenceEdges"></g>
+        <g id="climbEdges"></g>
+        <g id="webEdges"></g>
+
+        <!-- Apex pulse -->
+        <circle id="apexPulse" class="pulse" cx="500" cy="100" r="18"/>
+
+        <!-- Nodes -->
+        <g id="nodes"></g>
+
+        <!-- Bedrock row -->
+        <g id="bedrock"></g>
+
+        <!-- Labels overlay -->
+        <g id="labels"></g>
+      </svg>
+
+    </div>
+
+    <!-- §§ NEW NARRATIVE SECTIONS §§ -->
+
+    <!-- § agent-native substrate ────────────────────────────── -->
+    <section class="section" id="substrate">
+      <div class="section-head">
+        <span class="tag">§ the thesis</span>
+      </div>
+
+      <div class="substrate-lede">
+        <div class="big">Any complex project needs a <em>shared, living model</em> of what's true right now — one every agent can read, extend, contest, and trust.</div>
+        <div class="side">
+          Agents today pass messages. They hope the next one remembered. They rebuild context from scratch every morning.
+          <br><br>
+          A <em>pyramid</em> is the primitive that replaces all of that: the recursive, transformable artifact that holds the current state of understanding, with every claim traceable to its source.
+        </div>
+      </div>
+
+      <div class="substrate-ring">
+        <div class="agent-col">
+          <div class="col-title">humans & agents contributing</div>
+          <div class="agent-card">
+            <div class="diamond plum"></div>
+            <div class="body">
+              <div class="who">you</div>
+              <div class="what">ask the question that starts it all</div>
+            </div>
+          </div>
+          <div class="agent-card">
+            <div class="diamond"></div>
+            <div class="body">
+              <div class="who">planner</div>
+              <div class="what">reads the apex, asks the next sub-question</div>
+            </div>
+          </div>
+          <div class="agent-card">
+            <div class="diamond moss"></div>
+            <div class="body">
+              <div class="who">researcher</div>
+              <div class="what">fetches bedrock, cites evidence against a leaf</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="agent-col center">
+          <div class="col-title center">the pyramid — shared state</div>
+          <div class="substrate-center">
+            <svg viewBox="0 0 280 280" aria-hidden="true">
+              <g stroke="oklch(0.40 0.012 85)" stroke-width="1" fill="none" opacity="0.55">
+                <line x1="140" y1="40"  x2="70"  y2="110"/>
+                <line x1="140" y1="40"  x2="140" y2="110"/>
+                <line x1="140" y1="40"  x2="210" y2="110"/>
+                <line x1="70"  y1="110" x2="40"  y2="180"/>
+                <line x1="70"  y1="110" x2="100" y2="180"/>
+                <line x1="140" y1="110" x2="140" y2="180"/>
+                <line x1="210" y1="110" x2="180" y2="180"/>
+                <line x1="210" y1="110" x2="240" y2="180"/>
+                <line x1="40"  y1="180" x2="30"  y2="240"/>
+                <line x1="40"  y1="180" x2="60"  y2="240"/>
+                <line x1="100" y1="180" x2="110" y2="240"/>
+                <line x1="140" y1="180" x2="140" y2="240"/>
+                <line x1="180" y1="180" x2="170" y2="240"/>
+                <line x1="240" y1="180" x2="220" y2="240"/>
+                <line x1="240" y1="180" x2="250" y2="240"/>
+              </g>
+              <!-- subtle peer-webbing -->
+              <g stroke="oklch(0.56 0.10 150)" stroke-width="0.7" stroke-dasharray="2 2" opacity="0.5" fill="none">
+                <path d="M 70 110 Q 105 80 140 110"/>
+                <path d="M 140 110 Q 175 80 210 110"/>
+                <path d="M 40 180 Q 70 155 100 180"/>
+                <path d="M 140 180 Q 160 155 180 180"/>
+              </g>
+              <circle cx="140" cy="40" r="10" fill="oklch(0.17 0.010 75)" stroke="oklch(0.80 0.16 75)" stroke-width="1.8"/>
+              <g fill="color-mix(in oklch, oklch(0.80 0.16 75) 18%, oklch(0.17 0.010 75))" stroke="oklch(0.80 0.16 75)" stroke-width="1.3">
+                <circle cx="70"  cy="110" r="7"/>
+                <circle cx="140" cy="110" r="7"/>
+                <circle cx="210" cy="110" r="7"/>
+              </g>
+              <g fill="color-mix(in oklch, oklch(0.80 0.16 75) 12%, oklch(0.17 0.010 75))" stroke="oklch(0.80 0.16 75)" stroke-width="1">
+                <circle cx="40"  cy="180" r="5.5"/>
+                <circle cx="100" cy="180" r="5.5"/>
+                <circle cx="140" cy="180" r="5.5"/>
+                <circle cx="180" cy="180" r="5.5"/>
+                <circle cx="240" cy="180" r="5.5"/>
+              </g>
+              <g fill="oklch(0.17 0.010 75)" stroke="oklch(0.40 0.012 85)" stroke-width="1">
+                <rect x="22" y="232" width="16" height="12" rx="2"/>
+                <rect x="52" y="232" width="16" height="12" rx="2"/>
+                <rect x="102" y="232" width="16" height="12" rx="2"/>
+                <rect x="132" y="232" width="16" height="12" rx="2"/>
+                <rect x="162" y="232" width="16" height="12" rx="2"/>
+                <rect x="212" y="232" width="16" height="12" rx="2"/>
+                <rect x="242" y="232" width="16" height="12" rx="2"/>
+              </g>
+            </svg>
+            <div class="cap">read · extend · contest · trust</div>
+          </div>
+        </div>
+
+        <div class="agent-col">
+          <div class="col-title">agents watching & extending</div>
+          <div class="agent-card">
+            <div class="diamond moss"></div>
+            <div class="body">
+              <div class="who">dadbear</div>
+              <div class="what">walks the pyramid when bedrock changes, repairs only what broke</div>
+            </div>
+          </div>
+          <div class="agent-card">
+            <div class="diamond"></div>
+            <div class="body">
+              <div class="who">critic</div>
+              <div class="what">contests a claim, opens a counter-pyramid underneath it</div>
+            </div>
+          </div>
+          <div class="agent-card">
+            <div class="diamond plum"></div>
+            <div class="body">
+              <div class="who">future agent</div>
+              <div class="what">arrives tomorrow, reads state, continues — onboarding is reading</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="substrate-claims">
+        <div class="claim">
+          <div class="n">· 01</div>
+          <h4>Agents share <em>state,</em> together.</h4>
+          <p>Every agent reads from the same pyramid and writes back into it. The current understanding is always one artifact away — no summaries, no relays.</p>
+        </div>
+        <div class="claim">
+          <div class="n">· 02</div>
+          <h4>Every contribution is a <em>question with sources.</em></h4>
+          <p>Agents add by citing bedrock or opening a sub-question. The shape of thought is enforced. "I think" has nowhere to live.</p>
+        </div>
+        <div class="claim">
+          <div class="n">· 03</div>
+          <h4>Every change is <em>preserved as history.</em></h4>
+          <p>Rewrites keep the old answer as a parent version. Walk any node's history back to the day it was first asked. Full audit, free.</p>
+        </div>
+        <div class="claim">
+          <div class="n">· 04</div>
+          <h4>An agent joining tomorrow <em>starts where today's left off.</em></h4>
+          <p>Reading the pyramid <em>is</em> the onboarding. Handoffs are instant. So are collaborations across teams, tools, and time zones.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § vines ──────────────────────────────────────────────── -->
+    <section class="section" id="vines">
+      <div class="section-head">
+        <span class="tag moss">§ how it scales</span>
+        <h2>Bedrock can be <span class="moss-em">anything citable</span> — a file, a grown pyramid, or both at once.</h2>
+        <p>The base of a pyramid is any artifact with an address: a document, a dataset, a codebase, or another pyramid someone else has already built. Stack pyramids whose bedrock is mixed — raw files <em>and</em> other pyramids — and you get a <em>vine.</em> Vines can become bedrock for bigger vines. A personal tool becomes a shared network one citation at a time.</p>
+      </div>
+
+      <div class="vines-diagram">
+        <svg viewBox="0 0 960 420" aria-hidden="true">
+          <defs>
+            <marker id="vine-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="oklch(0.76 0.12 150)"/>
+            </marker>
+            <marker id="vine-arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="oklch(0.80 0.16 75)"/>
+            </marker>
+          </defs>
+
+          <!-- ═══ Bottom row: MIXED bedrock — three source pyramids + two raw files ═══ -->
+          <g id="vine-sources">
+            <!-- pyramid 1: codebase -->
+            <g transform="translate(20,270)">
+              <line x1="0"   y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="27"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="55"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="82"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="110" y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <rect x="-6" y="90" width="122" height="14" rx="2" fill="oklch(0.17 0.010 75)" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <g fill="oklch(0.21 0.012 75)" stroke="oklch(0.80 0.16 75)" stroke-width="0.8">
+                <circle cx="0" cy="90" r="2.5"/><circle cx="27" cy="90" r="2.5"/><circle cx="55" cy="90" r="2.5"/><circle cx="82" cy="90" r="2.5"/><circle cx="110" cy="90" r="2.5"/>
+              </g>
+              <circle cx="55" cy="20" r="5.5" fill="oklch(0.80 0.16 75)" stroke="oklch(0.80 0.16 75)"/>
+              <text x="55" y="126" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">pyramid · codebase</text>
+            </g>
+
+            <!-- raw file: SPEC.md (not a pyramid — just a document that was cited directly) -->
+            <g transform="translate(180,320)">
+              <rect x="0" y="0" width="56" height="40" rx="2" fill="oklch(0.21 0.012 75)" stroke="oklch(0.58 0.015 85)" stroke-width="1"/>
+              <line x1="8" y1="12" x2="48" y2="12" stroke="oklch(0.58 0.015 85)" stroke-width="0.6"/>
+              <line x1="8" y1="20" x2="48" y2="20" stroke="oklch(0.58 0.015 85)" stroke-width="0.6"/>
+              <line x1="8" y1="28" x2="36" y2="28" stroke="oklch(0.58 0.015 85)" stroke-width="0.6"/>
+              <text x="28" y="76" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">file · SPEC.md</text>
+            </g>
+
+            <!-- pyramid 2: market -->
+            <g transform="translate(290,270)">
+              <line x1="0"   y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="27"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="55"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="82"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="110" y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <rect x="-6" y="90" width="122" height="14" rx="2" fill="oklch(0.17 0.010 75)" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <g fill="oklch(0.21 0.012 75)" stroke="oklch(0.80 0.16 75)" stroke-width="0.8">
+                <circle cx="0" cy="90" r="2.5"/><circle cx="27" cy="90" r="2.5"/><circle cx="55" cy="90" r="2.5"/><circle cx="82" cy="90" r="2.5"/><circle cx="110" cy="90" r="2.5"/>
+              </g>
+              <circle cx="55" cy="20" r="5.5" fill="oklch(0.80 0.16 75)" stroke="oklch(0.80 0.16 75)"/>
+              <text x="55" y="126" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">pyramid · market</text>
+            </g>
+
+            <!-- pyramid 3: users -->
+            <g transform="translate(440,270)">
+              <line x1="0"   y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="27"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="55"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="82"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="110" y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <rect x="-6" y="90" width="122" height="14" rx="2" fill="oklch(0.17 0.010 75)" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <g fill="oklch(0.21 0.012 75)" stroke="oklch(0.80 0.16 75)" stroke-width="0.8">
+                <circle cx="0" cy="90" r="2.5"/><circle cx="27" cy="90" r="2.5"/><circle cx="55" cy="90" r="2.5"/><circle cx="82" cy="90" r="2.5"/><circle cx="110" cy="90" r="2.5"/>
+              </g>
+              <circle cx="55" cy="20" r="5.5" fill="oklch(0.80 0.16 75)" stroke="oklch(0.80 0.16 75)"/>
+              <text x="55" y="126" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">pyramid · users</text>
+            </g>
+
+            <!-- raw file: users.csv -->
+            <g transform="translate(600,320)">
+              <rect x="0" y="0" width="56" height="40" rx="2" fill="oklch(0.21 0.012 75)" stroke="oklch(0.58 0.015 85)" stroke-width="1"/>
+              <g fill="oklch(0.58 0.015 85)">
+                <rect x="8" y="10" width="4" height="4"/><rect x="16" y="10" width="4" height="4"/><rect x="24" y="10" width="4" height="4"/><rect x="32" y="10" width="4" height="4"/><rect x="40" y="10" width="4" height="4"/>
+                <rect x="8" y="18" width="4" height="4"/><rect x="16" y="18" width="4" height="4"/><rect x="24" y="18" width="4" height="4"/><rect x="32" y="18" width="4" height="4"/>
+                <rect x="8" y="26" width="4" height="4"/><rect x="16" y="26" width="4" height="4"/><rect x="24" y="26" width="4" height="4"/>
+              </g>
+              <text x="28" y="76" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">file · users.csv</text>
+            </g>
+
+            <!-- pyramid 4: risks -->
+            <g transform="translate(710,270)">
+              <line x1="0"   y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="27"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="55"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="82"  y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <line x1="110" y1="90" x2="55" y2="20" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <rect x="-6" y="90" width="122" height="14" rx="2" fill="oklch(0.17 0.010 75)" stroke="oklch(0.40 0.012 85)" stroke-width="0.8"/>
+              <g fill="oklch(0.21 0.012 75)" stroke="oklch(0.80 0.16 75)" stroke-width="0.8">
+                <circle cx="0" cy="90" r="2.5"/><circle cx="27" cy="90" r="2.5"/><circle cx="55" cy="90" r="2.5"/><circle cx="82" cy="90" r="2.5"/><circle cx="110" cy="90" r="2.5"/>
+              </g>
+              <circle cx="55" cy="20" r="5.5" fill="oklch(0.80 0.16 75)" stroke="oklch(0.80 0.16 75)"/>
+              <text x="55" y="126" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">pyramid · risks</text>
+            </g>
+          </g>
+
+          <!-- citation arrows into the bigger pyramid's bedrock (moss, curved) -->
+          <g stroke="oklch(0.76 0.12 150)" stroke-width="1" stroke-dasharray="3 3" fill="none" marker-end="url(#vine-arrow)">
+            <path d="M 75 285 C 140 230, 200 200, 260 170"/>
+            <path d="M 208 320 C 240 260, 270 210, 300 180"/>
+            <path d="M 345 285 C 370 250, 390 220, 400 190"/>
+            <path d="M 495 285 C 500 230, 490 210, 480 195"/>
+            <path d="M 628 320 C 620 260, 590 220, 560 200"/>
+            <path d="M 765 285 C 720 230, 680 210, 620 180"/>
+          </g>
+
+          <!-- ═══ Top row: the larger pyramid — whose bedrock ARE these mixed sources ═══ -->
+          <g transform="translate(200,30)">
+            <!-- apex-to-bedrock lines -->
+            <line x1="40"  y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+            <line x1="120" y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+            <line x1="200" y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+            <line x1="280" y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+            <line x1="360" y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+            <line x1="440" y1="140" x2="240" y2="30" stroke="oklch(0.40 0.012 85)" stroke-width="1"/>
+
+            <!-- MIXED bedrock: some cells are pyramids (moss), some are files (pale) -->
+            <!-- pyramid bedrock (moss, diamond glyph) -->
+            <g>
+              <rect x="18" y="128" width="44" height="22" rx="2" fill="color-mix(in oklch, oklch(0.76 0.12 150) 15%, oklch(0.17 0.010 75))" stroke="oklch(0.76 0.12 150)" stroke-width="1.2"/>
+              <polygon points="40,134 46,140 40,146 34,140" fill="none" stroke="oklch(0.76 0.12 150)" stroke-width="0.8"/>
+            </g>
+            <g>
+              <rect x="178" y="128" width="44" height="22" rx="2" fill="color-mix(in oklch, oklch(0.76 0.12 150) 15%, oklch(0.17 0.010 75))" stroke="oklch(0.76 0.12 150)" stroke-width="1.2"/>
+              <polygon points="200,134 206,140 200,146 194,140" fill="none" stroke="oklch(0.76 0.12 150)" stroke-width="0.8"/>
+            </g>
+            <g>
+              <rect x="258" y="128" width="44" height="22" rx="2" fill="color-mix(in oklch, oklch(0.76 0.12 150) 15%, oklch(0.17 0.010 75))" stroke="oklch(0.76 0.12 150)" stroke-width="1.2"/>
+              <polygon points="280,134 286,140 280,146 274,140" fill="none" stroke="oklch(0.76 0.12 150)" stroke-width="0.8"/>
+            </g>
+            <g>
+              <rect x="418" y="128" width="44" height="22" rx="2" fill="color-mix(in oklch, oklch(0.76 0.12 150) 15%, oklch(0.17 0.010 75))" stroke="oklch(0.76 0.12 150)" stroke-width="1.2"/>
+              <polygon points="440,134 446,140 440,146 434,140" fill="none" stroke="oklch(0.76 0.12 150)" stroke-width="0.8"/>
+            </g>
+            <!-- file bedrock (pale, stacked-lines glyph) -->
+            <g>
+              <rect x="98" y="128" width="44" height="22" rx="2" fill="oklch(0.21 0.012 75)" stroke="oklch(0.58 0.015 85)" stroke-width="1"/>
+              <line x1="108" y1="135" x2="132" y2="135" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+              <line x1="108" y1="140" x2="132" y2="140" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+              <line x1="108" y1="145" x2="124" y2="145" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+            </g>
+            <g>
+              <rect x="338" y="128" width="44" height="22" rx="2" fill="oklch(0.21 0.012 75)" stroke="oklch(0.58 0.015 85)" stroke-width="1"/>
+              <line x1="348" y1="135" x2="372" y2="135" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+              <line x1="348" y1="140" x2="372" y2="140" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+              <line x1="348" y1="145" x2="372" y2="145" stroke="oklch(0.58 0.015 85)" stroke-width="0.5"/>
+            </g>
+
+            <!-- interior nodes of the bigger pyramid -->
+            <g fill="color-mix(in oklch, oklch(0.80 0.16 75) 14%, oklch(0.17 0.010 75))" stroke="oklch(0.80 0.16 75)" stroke-width="1">
+              <circle cx="110" cy="95" r="4.5"/>
+              <circle cx="200" cy="95" r="4.5"/>
+              <circle cx="280" cy="95" r="4.5"/>
+              <circle cx="370" cy="95" r="4.5"/>
+            </g>
+            <g fill="color-mix(in oklch, oklch(0.80 0.16 75) 18%, oklch(0.17 0.010 75))" stroke="oklch(0.80 0.16 75)" stroke-width="1.2">
+              <circle cx="160" cy="60" r="5.5"/>
+              <circle cx="240" cy="60" r="5.5"/>
+              <circle cx="320" cy="60" r="5.5"/>
+            </g>
+
+            <!-- apex of the bigger pyramid -->
+            <circle cx="240" cy="30" r="11" fill="oklch(0.80 0.16 75)" stroke="oklch(0.80 0.16 75)"/>
+            <circle cx="240" cy="30" r="18" fill="none" stroke="oklch(0.80 0.16 75)" stroke-opacity="0.3"/>
+
+            <!-- vine label -->
+            <text x="500" y="32" font-family="JetBrains Mono" font-size="10" fill="oklch(0.80 0.16 75)" letter-spacing="2">VINE · APEX</text>
+            <text x="500" y="46" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)" font-style="italic">"is agent-wire the right bet for us?"</text>
+          </g>
+
+          <!-- upward arrow: this vine can itself be cited -->
+          <g stroke="oklch(0.80 0.16 75)" stroke-width="1" stroke-dasharray="2 3" fill="none" marker-end="url(#vine-arrow-amber)">
+            <line x1="440" y1="55" x2="440" y2="15"/>
+          </g>
+          <text x="452" y="20" font-family="JetBrains Mono" font-size="9" fill="oklch(0.58 0.015 85)">cited by the next vine ↑</text>
+
+          <!-- Legend strip at bottom of svg -->
+          <g transform="translate(0,410)" font-family="JetBrains Mono" font-size="9" fill="oklch(0.56 0.015 85)">
+            <rect x="10" y="-10" width="12" height="8" rx="1" fill="oklch(0.21 0.012 75)" stroke="oklch(0.58 0.015 85)" stroke-width="1"/>
+            <text x="30" y="-3">file / dataset / code</text>
+            <rect x="180" y="-10" width="12" height="8" rx="1" fill="color-mix(in oklch, oklch(0.76 0.12 150) 15%, oklch(0.17 0.010 75))" stroke="oklch(0.76 0.12 150)" stroke-width="1"/>
+            <text x="200" y="-3">another pyramid</text>
+            <circle cx="330" cy="-6" r="4" fill="oklch(0.80 0.16 75)"/>
+            <text x="342" y="-3">apex — the answer this pyramid is for</text>
+          </g>
+        </svg>
+
+        <div class="vines-legend">
+          <div>
+            <span class="k">· pyramid</span>
+            <span class="v">one question, fully answered, with every leaf cited.</span>
+          </div>
+          <div>
+            <span class="k">· vine</span>
+            <span class="v">a pyramid whose bedrock is a mix of files and other pyramids.</span>
+          </div>
+          <div>
+            <span class="k">· the wire</span>
+            <span class="v">the public fabric of vines — rebuilding itself as its sources change.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- § compute ────────────────────────────────────────────── -->
+    <section class="section" id="compute">
+      <div class="section-head">
+        <span class="tag plum">§ how the work gets done</span>
+        <h2>Bring a key. Bring a GPU. <span class="plum-em">Join the cooperative.</span> Do all three.</h2>
+        <p>Pyramids are massively parallel by nature — every leaf is independent work. The bottleneck is compute. You combine these three sources however you want: your key covers the models you need, your GPU handles what's private, and the cooperative absorbs the rest. Anything you don't use yourself becomes credits you can spend later.</p>
+      </div>
+
+      <div class="compute-grid">
+        <div class="compute-card">
+          <div class="num">· 01 · a key</div>
+          <h3>Bridge in <em>OpenRouter.</em></h3>
+          <div class="lede">Paste one OpenRouter key and you have access to every frontier model through one billing surface. Zero hardware, instant start.</div>
+          <div class="cmd">agent-wire key add openrouter sk-or-…</div>
+          <ul>
+            <li>One key · every OpenRouter-hosted model</li>
+            <li>Pay per token to OpenRouter directly</li>
+            <li>Idle capacity on your key earns cooperative credits</li>
+            <li><span class="muted">more providers landing soon</span></li>
+          </ul>
+          <div class="speedbar">
+            <span>solo throughput</span>
+            <div class="track"><div class="fill" style="width: 40%;"></div></div>
+          </div>
+        </div>
+
+        <div class="compute-card">
+          <div class="num">· 02 · a gpu</div>
+          <h3>Bridge in <em>Ollama</em> (or any OpenAI-compatible endpoint).</h3>
+          <div class="lede">Point at a local Ollama install or any OpenAI-compatible API — your own hardware, your own models, nothing leaves the machine.</div>
+          <div class="cmd">agent-wire gpu add http://localhost:11434</div>
+          <ul>
+            <li>Ollama out of the box · any OpenAI-compatible API works too</li>
+            <li>Add several endpoints — they pool into one fleet</li>
+            <li>Private by default · your bedrock stays on the box</li>
+            <li>Idle GPU time earns cooperative credits</li>
+          </ul>
+          <div class="speedbar">
+            <span>fleet throughput</span>
+            <div class="track"><div class="fill" style="width: 62%;"></div></div>
+          </div>
+        </div>
+
+        <div class="compute-card featured">
+          <div class="badge">multiplier</div>
+          <div class="num">· 03 · the co-op</div>
+          <h3>Join the <em>compute cooperative.</em></h3>
+          <div class="lede">When your key or your GPU is idle, you contribute credits. When you're building, credits buy concurrency across the network. Leaf-parallel, often 40×+ faster than alone.</div>
+          <div class="cmd">agent-wire coop join</div>
+          <ul>
+            <li>Cloudflare-tunneled · no ports, no public IPs, no trust in the middle</li>
+            <li>Every worker is signed · every leaf carries a provenance receipt</li>
+            <li>Peer traffic is end-to-end · the network never sees your bedrock</li>
+            <li>One ledger balances credits from keys and GPUs over time</li>
+          </ul>
+          <div class="speedbar">
+            <span>wire throughput</span>
+            <div class="track"><div class="fill fast" style="width: 96%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compute-tradeoff">
+        <div class="tline">
+          <span class="tlabel">one key, alone</span>
+          <div class="tbar"><div class="tbar-fill" style="width: 32%;"></div></div>
+          <span class="tval">hours</span>
+        </div>
+        <div class="tline">
+          <span class="tlabel">your local fleet</span>
+          <div class="tbar"><div class="tbar-fill moss" style="width: 55%;"></div></div>
+          <span class="tval">tens of minutes</span>
+        </div>
+        <div class="tline">
+          <span class="tlabel">with the cooperative</span>
+          <div class="tbar"><div class="tbar-fill plum" style="width: 94%;"></div></div>
+          <span class="tval">minutes</span>
+        </div>
+      </div>
+
+      <div class="privacy-note">
+        <strong>Private by construction.</strong> Every node talks through Cloudflare tunnels — no inbound ports, no public addresses, no trust in the network. Your bedrock never touches a server you don't own. Workers see only the specific leaf question they've been asked to answer, and sign their reply. This is how you share compute without sharing context.
+      </div>
+    </section>
+
+    <!-- § ship it ───────────────────────────────────────────── -->
+    <section class="section" id="ship">
+      <div class="section-head">
+        <span class="tag">§ open source · Apache 2.0</span>
+        <h2>Run it locally. Read every line. <span class="moss-em">Send us patches.</span></h2>
+        <p>Agent-wire is a single cross-platform binary plus a Rust core. Everything on this page — the pyramid engine, dadbear, the cooperative protocol, the tunneling layer — is in one public repo under Apache 2.0.</p>
+      </div>
+
+      <div class="ship-grid">
+        <a class="ship-card gh" href="https://github.com/adamlevineagent/agent-wire-node" target="_blank" rel="noopener">
+          <div class="ship-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.4-1.3-5.4-5.9 0-1.3.5-2.4 1.3-3.2-.1-.3-.5-1.6.1-3.3 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 3 .1 3.3.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.4 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          </div>
+          <div class="ship-body">
+            <div class="ship-k">github · adamlevineagent / agent-wire-node</div>
+            <div class="ship-v">Source · issues · roadmap · a star helps more than you'd think.</div>
+          </div>
+          <div class="ship-cta">★ <span id="starCount">star</span></div>
+        </a>
+
+        <div class="ship-bins">
+          <div class="ship-bins-title">Download the binary</div>
+          <div class="bin-row">
+            <a class="bin" href="https://github.com/adamlevineagent/agent-wire-node/releases/latest/download/agent-wire-macos-arm64.tar.gz">
+              <span class="bin-os">macOS</span>
+              <span class="bin-arch">apple silicon · intel</span>
+            </a>
+            <a class="bin" href="https://github.com/adamlevineagent/agent-wire-node/releases/latest/download/agent-wire-linux-x86_64.tar.gz">
+              <span class="bin-os">Linux</span>
+              <span class="bin-arch">x86_64 · arm64 · deb · rpm</span>
+            </a>
+            <a class="bin" href="https://github.com/adamlevineagent/agent-wire-node/releases/latest/download/agent-wire-windows-x86_64.zip">
+              <span class="bin-os">Windows</span>
+              <span class="bin-arch">x86_64 · installer · portable</span>
+            </a>
+          </div>
+          <div class="bin-hint">Or install from source: <code>cargo install --git github.com/adamlevineagent/agent-wire-node</code></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CODA BELOW -->
+    <div class="coda">
+      <div class="coda-inner">
+        <div class="tag">§ now</div>
+        <h2>Grow one pyramid. Then <span class="moss-em">join the wire.</span></h2>
+        <p>One question at a time. One pyramid on top of another. That's how a shared, living model of anything hard gets built — and kept true, together.</p>
+
+        <div class="ctas">
+          <a href="https://github.com/adamlevineagent/agent-wire-node" class="btn btn-primary">Get the binary <span>→</span></a>
+          <a href="https://github.com/adamlevineagent/agent-wire-node" class="btn btn-ghost" target="_blank" rel="noopener">Star on GitHub <span>★</span></a>
+          <a href="#" class="btn btn-ghost" id="replayAll">Replay animation <span>↺</span></a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Timeline scrubber -->
+  <div class="timeline">
+    <button class="tl-btn" id="playBtn" title="play / pause">▶</button>
+    <div class="tl-scrub" id="scrub">
+      <div class="tl-fill" id="tlFill"></div>
+      <div class="tl-thumb" id="tlThumb"></div>
+      <div class="tl-acts" id="tlActs"></div>
+    </div>
+    <span id="tlAct">I · blueprint</span>
+  </div>
+
+  <!-- TWEAKS PANEL -->
+  <div class="tweaks" id="tweaks">
+    <div class="tweaks-title">Tweaks</div>
+    <div class="tweaks-body">
+      <div class="tweak-group">
+        <div class="label">Playback speed</div>
+        <div class="seg" data-key="speed">
+          <button data-v="slow">0.5×</button>
+          <button data-v="normal" class="active">1×</button>
+          <button data-v="fast">2×</button>
+        </div>
+      </div>
+      <div class="tweak-group">
+        <div class="label">Loop</div>
+        <div class="seg" data-key="loop">
+          <button data-v="once">Play once</button>
+          <button data-v="loop" class="active">Loop</button>
+        </div>
+      </div>
+      <div class="tweak-group">
+        <div class="label">Show labels</div>
+        <div class="seg" data-key="labels">
+          <button data-v="on" class="active">On</button>
+          <button data-v="off">Off</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /* ============================================================
+     PYRAMID ANIMATION
+     Three acts on a single timeline.
+     Act 1: decompose the question
+     Act 2: reach into bedrock and fill the pyramid
+     Act 3: the next question — the pyramid remembers and grows
+     ============================================================ */
+
+  const TWEAKS = /*EDITMODE-BEGIN*/{
+    "speed": "normal",
+    "loop": "loop",
+    "labels": "on"
+  }/*EDITMODE-END*/;
+
+  // ── Data: the pyramid graph ─────────────────────────────────
+  // apex + L2 + L1 + leaves, plus a "new" branch (the next question)
+  const NODES = [
+    // Apex
+    { id: 'apex', x: 500, y: 100, r: 14, kind: 'apex', label: '"What is this and why should I care?"' },
+
+    // L2 — first question's branches
+    { id: 'l2a', x: 340, y: 250, r: 10, kind: 'q', label: 'What is it?' },
+    { id: 'l2b', x: 500, y: 250, r: 10, kind: 'q', label: 'What makes it different?' },
+    { id: 'l2c', x: 660, y: 250, r: 10, kind: 'q', label: 'Why should I care?' },
+
+    // L1
+    { id: 'l1a1', x: 250, y: 390, r: 8, kind: 'q', label: 'Primitive?' },
+    { id: 'l1a2', x: 370, y: 390, r: 8, kind: 'q', label: 'Who builds?' },
+    { id: 'l1b1', x: 470, y: 390, r: 8, kind: 'q', label: 'Mechanism?' },
+    { id: 'l1b2', x: 560, y: 390, r: 8, kind: 'q', label: 'Economics?' },
+    { id: 'l1c1', x: 640, y: 390, r: 8, kind: 'q', label: 'Who benefits?' },
+    { id: 'l1c2', x: 740, y: 390, r: 8, kind: 'q', label: 'Why now?' },
+
+    // Leaves (L0 questions)
+    { id: 'le0', x: 180, y: 540, r: 6, kind: 'q', label: 'def?' },
+    { id: 'le1', x: 260, y: 540, r: 6, kind: 'q', label: 'shape?' },
+    { id: 'le2', x: 340, y: 540, r: 6, kind: 'q', label: 'authors?' },
+    { id: 'le3', x: 420, y: 540, r: 6, kind: 'q', label: 'vs. RAG?' },
+    { id: 'le4', x: 500, y: 540, r: 6, kind: 'q', label: 'royalties?' },
+    { id: 'le5', x: 580, y: 540, r: 6, kind: 'q', label: 'cost?' },
+    { id: 'le6', x: 660, y: 540, r: 6, kind: 'q', label: 'for whom?' },
+    { id: 'le7', x: 740, y: 540, r: 6, kind: 'q', label: 'urgency?' },
+
+    // ── NEW branch — appears in Act 3 (the next question) ──
+    // New L2 question: "Who should try it first?" branches off the apex
+    { id: 'apex2', x: 500, y: 100, r: 14, kind: 'apex-new', label: '+ new question' }, // sits in same position; renders as ghost
+    { id: 'nl2',  x: 870, y: 250, r: 10, kind: 'q-new', label: 'Who should try it first?' },
+    { id: 'nl1a', x: 820, y: 390, r: 8,  kind: 'q-new', label: 'Agent builders?' },
+    { id: 'nl1b', x: 920, y: 390, r: 8,  kind: 'q-new', label: 'What profile?' },
+    { id: 'nle0', x: 800, y: 540, r: 6,  kind: 'q-new', label: 'ready?' },
+    { id: 'nle1', x: 860, y: 540, r: 6,  kind: 'q-new', label: 'fit?' },
+    { id: 'nle2', x: 930, y: 540, r: 6,  kind: 'q-new', label: 'barriers?' },
+  ];
+
+  const EDGES = [
+    // Apex → L2
+    ['apex','l2a'], ['apex','l2b'], ['apex','l2c'],
+    // L2 → L1
+    ['l2a','l1a1'], ['l2a','l1a2'],
+    ['l2b','l1b1'], ['l2b','l1b2'],
+    ['l2c','l1c1'], ['l2c','l1c2'],
+    // L1 → leaves
+    ['l1a1','le0'], ['l1a1','le1'],
+    ['l1a2','le2'],
+    ['l1b1','le3'], ['l1b2','le4'],
+    ['l1b2','le5'],
+    ['l1c1','le6'],
+    ['l1c2','le7'],
+  ];
+
+  const NEW_EDGES = [
+    ['apex','nl2'],
+    ['nl2','nl1a'], ['nl2','nl1b'],
+    ['nl1a','nle0'],
+    ['nl1a','nle1'],
+    ['nl1b','nle2'],
+  ];
+
+  // Bedrock: mixed types (doc, code, pyramid, data, note, text)
+  const BEDROCK = [
+    { id: 'br0', x: 140,  y: 680, w: 54, h: 32, kind: 'doc',     label: 'README.md' },
+    { id: 'br1', x: 210,  y: 680, w: 54, h: 32, kind: 'pyramid', label: '{pyramid}' },   // a nested pyramid source
+    { id: 'br2', x: 280,  y: 680, w: 54, h: 32, kind: 'code',    label: 'engine.rs' },
+    { id: 'br3', x: 350,  y: 680, w: 54, h: 32, kind: 'doc',     label: 'SPEC.md' },
+    { id: 'br4', x: 420,  y: 680, w: 54, h: 32, kind: 'data',    label: 'ledger.csv' },
+    { id: 'br5', x: 490,  y: 680, w: 54, h: 32, kind: 'code',    label: 'flow.ts' },
+    { id: 'br6', x: 560,  y: 680, w: 54, h: 32, kind: 'note',    label: 'notes.txt' },
+    { id: 'br7', x: 630,  y: 680, w: 54, h: 32, kind: 'pyramid', label: '{pyramid}' },   // another pyramid
+    { id: 'br8', x: 700,  y: 680, w: 54, h: 32, kind: 'doc',     label: 'why.md' },
+    { id: 'br9', x: 770,  y: 680, w: 54, h: 32, kind: 'text',    label: 'essay.txt' },
+    { id: 'br10',x: 840,  y: 680, w: 54, h: 32, kind: 'data',    label: 'users.csv' },
+  ];
+
+  // Evidence map: which leaf pulls which bedrock (with weight)
+  const EVIDENCE = [
+    ['le0', 'br0'], ['le0', 'br1'],
+    ['le1', 'br1'], ['le1', 'br2'],
+    ['le2', 'br3'],
+    ['le3', 'br4'], ['le3', 'br5'],
+    ['le4', 'br4'], ['le4', 'br6'],
+    ['le5', 'br5'],
+    ['le6', 'br7'], ['le6', 'br8'],
+    ['le7', 'br8'], ['le7', 'br9'],
+  ];
+
+  // Webbing between peers — denser, so the pyramid visibly knits together as it answers
+  const WEBBING = [
+    // L1 peer connections — knits the middle layer
+    ['l1a1','l1a2'],
+    ['l1a2','l1b1'],
+    ['l1b1','l1b2'],
+    ['l1b2','l1c1'],
+    ['l1c1','l1c2'],
+    // Cross-branch L1 (non-adjacent)
+    ['l1a1','l1b2'],
+    ['l1b1','l1c2'],
+    // L2 peer connections
+    ['l2a','l2b'],
+    ['l2b','l2c'],
+    ['l2a','l2c'],
+    // Leaf-to-L1 cross-refs (same branch isn't needed — those are parent/child;
+    // but cross-branch leaves sharing bedrock create lateral ties)
+    ['le1','l1a2'],
+    ['le4','l1c1'],
+  ];
+
+  // NEW evidence (Act 3) — some re-uses existing bedrock (key point!), some new
+  const NEW_EVIDENCE = [
+    ['nle0', 'br8'],   // re-used
+    ['nle0', 'br10'],  // new
+    ['nle1', 'br7'],   // re-used from pyramid
+    ['nle1', 'br9'],   // re-used
+    ['nle2', 'br6'],   // re-used
+    ['nle2', 'br10'],  // new
+  ];
+
+  const NEW_WEBBING = [
+    ['nl2','l2c'],         // new branch ties back into existing "Why should I care?"
+    ['nl1a','l1c1'],       // "agent builders" ties to "who benefits"
+  ];
+
+  // ── Captions per act ────────────────────────────────────────
+  const ACTS = [
+    {
+      num: 'ACT · ONE',
+      head: '<em>“What is this and why should I care?”</em>',
+      sub:  'A question becomes the apex of a pyramid. Its shape is the question, broken into smaller questions — no source material yet, just the blueprint.',
+      startPct: 0,
+      endPct: 0.22
+    },
+    {
+      num: 'ACT · TWO',
+      head: 'Reach into <em>bedrock</em>. Evidence fills the pyramid.',
+      sub:  'Leaves pull evidence from text, code, data — and from other pyramids. Answers climb. Peers web. The apex resolves.',
+      startPct: 0.22,
+      endPct: 0.58
+    },
+    {
+      num: 'ACT · THREE',
+      head: 'The next question finds most of its answer <span class="plum-em">already here</span>.',
+      sub:  'Only the truly new part gets built. Everything else — already answered, already trusted, already paid for. The pyramid grows a branch.',
+      startPct: 0.58,
+      endPct: 0.80,
+      color: 'plum'
+    },
+    {
+      num: 'ACT · FOUR · WHEN A FILE CHANGES',
+      head: 'The pyramid is <span class="moss-em">alive</span>.',
+      sub:  'A file changes. At each touched node, an LLM decides: rewrite, or <em>fine · stop</em> — and picks its own next hops. The ripple dies as conclusions stabilize. (DADBEAR.)',
+      startPct: 0.80,
+      endPct: 1.0,
+      color: 'cyan'
+    }
+  ];
+
+  // ── SVG render ──────────────────────────────────────────────
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const elNodes = document.getElementById('nodes');
+  const elEdges = document.getElementById('edges');
+  const elEvEdges = document.getElementById('evidenceEdges');
+  const elClimb = document.getElementById('climbEdges');
+  const elWeb = document.getElementById('webEdges');
+  const elBedrock = document.getElementById('bedrock');
+  const elLabels = document.getElementById('labels');
+  const apexPulse = document.getElementById('apexPulse');
+
+  const nodeById = {};
+  NODES.forEach(n => nodeById[n.id] = n);
+  BEDROCK.forEach(b => nodeById[b.id] = b);
+
+  // Render edges (question tree + new)
+  const edgeEls = {};
+  function renderEdge(from, to, isNew=false, layer='edges') {
+    const fn = nodeById[from], tn = nodeById[to];
+    if (!fn || !tn) return;
+    const x1 = fn.x, y1 = fn.y;
+    const x2 = tn.x, y2 = tn.y;
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2 + 12;
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
+    path.setAttribute('class', 'edge' + (isNew ? ' new-ghost' : ''));
+    if (isNew) path.style.stroke = 'var(--plum-ghost)';
+    const key = `${from}__${to}`;
+    if (layer === 'edges') elEdges.appendChild(path);
+    if (layer === 'evidence') { path.setAttribute('class', 'edge evidence' + (isNew ? ' new' : '')); elEvEdges.appendChild(path); }
+    if (layer === 'climb') { path.setAttribute('class', 'edge climb' + (isNew ? ' new' : '')); elClimb.appendChild(path); }
+    if (layer === 'web') { path.setAttribute('class', 'edge web'); elWeb.appendChild(path); }
+    edgeEls[layer + ':' + key] = path;
+    // set dasharray to actual path length so reverse animation fully retracts;
+    // dashoffset is controlled by CSS classes via --edge-length
+    try {
+      const L = Math.ceil(path.getTotalLength()) + 2;
+      path.style.setProperty('--edge-length', L);
+    } catch (e) { /* ignore */ }
+    return path;
+  }
+
+  // original tree edges
+  EDGES.forEach(([a,b]) => renderEdge(a, b, false, 'edges'));
+  // new tree edges (drawn in Act 3)
+  NEW_EDGES.forEach(([a,b]) => renderEdge(a, b, true, 'edges'));
+
+  // evidence edges (both sets)
+  EVIDENCE.forEach(([a,b]) => renderEdge(a, b, false, 'evidence'));
+  NEW_EVIDENCE.forEach(([a,b]) => renderEdge(a, b, true, 'evidence'));
+
+  // webbing edges (as lines between peer centers — curvy)
+  function renderWeb(from, to, isNew=false) {
+    const fn = nodeById[from], tn = nodeById[to];
+    if (!fn || !tn) return;
+    const x1 = fn.x, y1 = fn.y;
+    const x2 = tn.x, y2 = tn.y;
+    const cx = (x1 + x2) / 2;
+    const cy = Math.min(y1, y2) - 40;
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
+    path.setAttribute('class', 'edge web' + (isNew ? ' new' : ''));
+    if (isNew) path.style.stroke = 'var(--plum)';
+    elWeb.appendChild(path);
+    edgeEls['web:' + from + '__' + to] = path;
+    return path;
+  }
+  WEBBING.forEach(([a,b]) => renderWeb(a,b,false));
+  NEW_WEBBING.forEach(([a,b]) => renderWeb(a,b,true));
+
+  // Render nodes
+  const nodeEls = {};
+  NODES.forEach(n => {
+    const c = document.createElementNS(svgNS, 'circle');
+    c.setAttribute('cx', n.x);
+    c.setAttribute('cy', n.y);
+    c.setAttribute('r', n.r);
+    c.setAttribute('data-id', n.id);
+    let cls = 'node-q';
+    if (n.kind === 'apex') cls += ' apex';
+    if (n.kind.endsWith('-new') || n.kind === 'q-new') cls += ' new';
+    c.setAttribute('class', cls);
+    elNodes.appendChild(c);
+    nodeEls[n.id] = c;
+
+    // label — apex label goes BELOW the apex dot (above is the caption's territory)
+    const t = document.createElementNS(svgNS, 'text');
+    t.setAttribute('x', n.x);
+    t.setAttribute('y', n.y + n.r + 16);
+    let lcls = 'node-label';
+    if (n.kind === 'apex') lcls += ' apex';
+    if (n.kind === 'q-new') lcls += ' new';
+    t.setAttribute('class', lcls);
+    t.textContent = n.label;
+    elLabels.appendChild(t);
+    n._label = t;
+  });
+
+  // Render bedrock
+  const bedrockEls = {};
+  BEDROCK.forEach(b => {
+    const r = document.createElementNS(svgNS, 'rect');
+    r.setAttribute('x', b.x - b.w/2);
+    r.setAttribute('y', b.y - b.h/2);
+    r.setAttribute('width', b.w);
+    r.setAttribute('height', b.h);
+    r.setAttribute('rx', 3);
+    r.setAttribute('class', 'node-bedrock');
+    r.setAttribute('data-id', b.id);
+    elBedrock.appendChild(r);
+    bedrockEls[b.id] = r;
+
+    // inner glyph — a tiny pyramid glyph for kind=pyramid, otherwise just the text
+    if (b.kind === 'pyramid') {
+      const g = document.createElementNS(svgNS, 'g');
+      g.setAttribute('transform', `translate(${b.x - 14}, ${b.y - 7})`);
+      const mini = document.createElementNS(svgNS, 'path');
+      mini.setAttribute('d', 'M 0 10 L 14 0 L 28 10 M 4 10 L 14 2 M 24 10 L 14 2 M 14 2 L 14 10');
+      mini.setAttribute('stroke', 'currentColor');
+      mini.setAttribute('stroke-width', '0.8');
+      mini.setAttribute('fill', 'none');
+      mini.setAttribute('opacity', '0.7');
+      g.appendChild(mini);
+      elBedrock.appendChild(g);
+      b._glyph = g;
+    }
+
+    const t = document.createElementNS(svgNS, 'text');
+    t.setAttribute('x', b.x);
+    t.setAttribute('y', b.y + b.h/2 + 13);
+    t.setAttribute('class', 'bedrock-label');
+    t.textContent = b.label;
+    elLabels.appendChild(t);
+    b._label = t;
+  });
+
+  // ── Timeline engine ─────────────────────────────────────────
+  // Everything keyed to a master progress 0..1. We derive node states from t.
+  // Structure of events: cumulative progress markers.
+  const DURATION_BASE = 29000; // 29s per full cycle at 1x
+  function durationMs() {
+    const m = TWEAKS.speed === 'slow' ? 2 : TWEAKS.speed === 'fast' ? 0.5 : 1;
+    return DURATION_BASE * m;
+  }
+
+  // Define the event schedule as a list of {at: 0..1, do: ()=>{}, undo: ()=>{}}
+  // We'll call them forward/backward based on scrub.
+  const EVENTS = [];
+  function addEv(at, doFn, undoFn) { EVENTS.push({at, do: doFn, undo: undoFn}); }
+
+  // Helpers
+  function setNodeState(id, ...classes) {
+    const el = nodeEls[id];
+    if (!el) return;
+    const TOGGLE = ['drawn','answered','rewritten','fine','thinking'];
+    const base = el.className.baseVal.split(' ').filter(c => !TOGGLE.includes(c));
+    el.setAttribute('class', [...base, ...classes].join(' '));
+    const lbl = NODES.find(n => n.id === id)?._label;
+    if (lbl) {
+      const lb = lbl.className.baseVal.split(' ').filter(c => !TOGGLE.includes(c));
+      lbl.setAttribute('class', [...lb, ...classes].join(' '));
+    }
+  }
+  function setBedrockState(id, ...classes) {
+    const el = bedrockEls[id];
+    if (!el) return;
+    const TOGGLE = ['drawn','cited','cited-new','changed'];
+    const base = el.className.baseVal.split(' ').filter(c => !TOGGLE.includes(c));
+    el.setAttribute('class', [...base, ...classes].join(' '));
+    const bd = BEDROCK.find(b => b.id === id);
+    if (bd && bd._label) {
+      const lb = bd._label.className.baseVal.split(' ').filter(c => !TOGGLE.includes(c));
+      bd._label.setAttribute('class', [...lb, ...classes].join(' '));
+    }
+  }
+  function setEdgeState(key, layer, on, extraClass='') {
+    const p = edgeEls[layer + ':' + key];
+    if (!p) return;
+    if (on) p.classList.add('drawn');
+    else p.classList.remove('drawn');
+    if (extraClass) {
+      if (on) p.classList.add(extraClass);
+      else p.classList.remove(extraClass);
+    }
+  }
+
+  // ── ACT 1: decompose. 0..0.22 ─────────────────────────────
+  addEv(0.00,
+    () => {
+      setNodeState('apex','drawn');
+      // "welcome" pulse — a ring spawns around the apex on arrival
+      const ring = document.createElementNS(svgNS, 'circle');
+      ring.setAttribute('cx', 500); ring.setAttribute('cy', 100); ring.setAttribute('r', 14);
+      ring.setAttribute('class', 'check-ring on');
+      ring.style.stroke = 'var(--signal)';
+      document.getElementById('pyramid').appendChild(ring);
+      setTimeout(() => ring.remove(), 1400);
+    },
+    () => { setNodeState('apex'); }
+  );
+  addEv(0.07,
+    () => { EDGES.filter(([a]) => a === 'apex').forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',true); setNodeState(b,'drawn'); }); },
+    () => { EDGES.filter(([a]) => a === 'apex').forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',false); setNodeState(b); }); }
+  );
+  addEv(0.12,
+    () => {
+      EDGES.filter(([a]) => ['l2a','l2b','l2c'].includes(a)).forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',true); setNodeState(b,'drawn'); });
+    },
+    () => {
+      EDGES.filter(([a]) => ['l2a','l2b','l2c'].includes(a)).forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',false); setNodeState(b); });
+    }
+  );
+  addEv(0.18,
+    () => {
+      EDGES.filter(([a]) => a.startsWith('l1')).forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',true); setNodeState(b,'drawn'); });
+    },
+    () => {
+      EDGES.filter(([a]) => a.startsWith('l1')).forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',false); setNodeState(b); });
+    }
+  );
+
+  // ── ACT 2: bedrock appears → evidence → answers climb → webbing → apex. 0.22..0.58 ─
+  addEv(0.24,
+    () => { BEDROCK.forEach(b => setBedrockState(b.id,'drawn')); },
+    () => { BEDROCK.forEach(b => setBedrockState(b.id)); }
+  );
+  // Each leaf pulls its evidence — in waves
+  const LEAVES_ORDER = ['le0','le1','le2','le3','le4','le5','le6','le7'];
+  LEAVES_ORDER.forEach((leaf, i) => {
+    const at = 0.28 + i * 0.012;
+    addEv(at,
+      () => {
+        EVIDENCE.filter(([l]) => l === leaf).forEach(([l, br]) => {
+          setEdgeState(l+'__'+br, 'evidence', true);
+          setBedrockState(br, 'drawn', 'cited');
+        });
+        setNodeState(leaf, 'drawn', 'answered');
+      },
+      () => {
+        EVIDENCE.filter(([l]) => l === leaf).forEach(([l, br]) => {
+          setEdgeState(l+'__'+br, 'evidence', false);
+          setBedrockState(br, 'drawn');
+        });
+        setNodeState(leaf, 'drawn');
+      }
+    );
+  });
+
+  // Answers climb to L1 — and the leaf→L1 edges light up moss ("climbing")
+  addEv(0.40,
+    () => {
+      ['l1a1','l1a2','l1b1','l1b2','l1c1','l1c2'].forEach(id => setNodeState(id,'drawn','answered'));
+      // The tree edges from leaves up to L1 become "climbing" (moss)
+      EDGES.filter(([a,b]) => a.startsWith('l1')).forEach(([a,b]) => {
+        setEdgeState(a+'__'+b, 'edges', true, 'climbing');
+      });
+    },
+    () => {
+      ['l1a1','l1a2','l1b1','l1b2','l1c1','l1c2'].forEach(id => setNodeState(id,'drawn'));
+      EDGES.filter(([a,b]) => a.startsWith('l1')).forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.remove('climbing');
+      });
+    }
+  );
+  // First wave of webbing (L1 peers knitting)
+  addEv(0.44,
+    () => {
+      WEBBING.filter(([a,b]) => a.startsWith('l1') && b.startsWith('l1')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',true));
+    },
+    () => {
+      WEBBING.filter(([a,b]) => a.startsWith('l1') && b.startsWith('l1')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',false));
+    }
+  );
+  // Leaf-to-L1 cross-refs (evidence-sharing leaves)
+  addEv(0.46,
+    () => {
+      WEBBING.filter(([a,b]) => a.startsWith('le')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',true));
+    },
+    () => {
+      WEBBING.filter(([a,b]) => a.startsWith('le')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',false));
+    }
+  );
+  // Climb to L2 — L1→L2 edges light up, L2 nodes resolve
+  addEv(0.50,
+    () => {
+      ['l2a','l2b','l2c'].forEach(id => setNodeState(id,'drawn','answered'));
+      EDGES.filter(([a,b]) => a.startsWith('l2')).forEach(([a,b]) => {
+        setEdgeState(a+'__'+b, 'edges', true, 'climbing');
+      });
+      // L2 peer webbing appears as the layer resolves
+      WEBBING.filter(([a,b]) => a.startsWith('l2')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',true));
+    },
+    () => {
+      ['l2a','l2b','l2c'].forEach(id => setNodeState(id,'drawn'));
+      EDGES.filter(([a,b]) => a.startsWith('l2')).forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.remove('climbing');
+      });
+      WEBBING.filter(([a,b]) => a.startsWith('l2')).forEach(([a,b]) => setEdgeState(a+'__'+b,'web',false));
+    }
+  );
+  // Apex resolves — apex→L2 edges light up, and apex itself fills
+  addEv(0.55,
+    () => {
+      setNodeState('apex','drawn','answered');
+      EDGES.filter(([a,b]) => a === 'apex').forEach(([a,b]) => {
+        setEdgeState(a+'__'+b, 'edges', true, 'climbing');
+      });
+      apexPulse.classList.add('on');
+      setTimeout(() => apexPulse.classList.remove('on'), 1900);
+    },
+    () => {
+      setNodeState('apex','drawn');
+      EDGES.filter(([a,b]) => a === 'apex').forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.remove('climbing');
+      });
+      apexPulse.classList.remove('on');
+    }
+  );
+
+  // ── ACT 3: the next question. 0.58..0.80 ───────────────────
+  // A new question branches off apex (plum)
+  addEv(0.60,
+    () => {
+      setEdgeState('apex__nl2','edges',true);
+      setNodeState('nl2','drawn');
+    },
+    () => {
+      setEdgeState('apex__nl2','edges',false);
+      setNodeState('nl2');
+    }
+  );
+  addEv(0.64,
+    () => {
+      [['nl2','nl1a'],['nl2','nl1b']].forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',true); setNodeState(b,'drawn'); });
+    },
+    () => {
+      [['nl2','nl1a'],['nl2','nl1b']].forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',false); setNodeState(b); });
+    }
+  );
+  addEv(0.67,
+    () => {
+      [['nl1a','nle0'],['nl1a','nle1'],['nl1b','nle2']].forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',true); setNodeState(b,'drawn'); });
+    },
+    () => {
+      [['nl1a','nle0'],['nl1a','nle1'],['nl1b','nle2']].forEach(([a,b]) => { setEdgeState(a+'__'+b,'edges',false); setNodeState(b); });
+    }
+  );
+  // New evidence — most reuses existing bedrock, two new cites
+  addEv(0.71,
+    () => {
+      NEW_EVIDENCE.forEach(([l, br]) => {
+        setEdgeState(l+'__'+br, 'evidence', true);
+        // highlight bedrock as cited by new branch too
+        const bd = BEDROCK.find(b => b.id === br);
+        if (bd) setBedrockState(br, 'drawn', 'cited-new');
+      });
+      ['nle0','nle1','nle2'].forEach(id => setNodeState(id,'drawn','answered','new'));
+    },
+    () => {
+      NEW_EVIDENCE.forEach(([l, br]) => {
+        setEdgeState(l+'__'+br, 'evidence', false);
+        const reused = EVIDENCE.some(([_, rr]) => rr === br);
+        setBedrockState(br, 'drawn', reused ? 'cited' : '');
+      });
+      ['nle0','nle1','nle2'].forEach(id => setNodeState(id,'drawn','new'));
+    }
+  );
+  addEv(0.75,
+    () => {
+      ['nl1a','nl1b'].forEach(id => setNodeState(id,'drawn','answered','new'));
+      // new-branch leaf→L1 edges light up plum
+      [['nl1a','nle0'],['nl1a','nle1'],['nl1b','nle2']].forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.add('climbing','new');
+      });
+      NEW_WEBBING.forEach(([a,b]) => setEdgeState(a+'__'+b,'web',true,'new'));
+    },
+    () => {
+      ['nl1a','nl1b'].forEach(id => setNodeState(id,'drawn','new'));
+      [['nl1a','nle0'],['nl1a','nle1'],['nl1b','nle2']].forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.remove('climbing');
+      });
+      NEW_WEBBING.forEach(([a,b]) => setEdgeState(a+'__'+b,'web',false));
+    }
+  );
+  addEv(0.78,
+    () => {
+      setNodeState('nl2','drawn','answered','new');
+      // L1→L2 and apex→nl2 on the new branch light up
+      [['nl2','nl1a'],['nl2','nl1b'],['apex','nl2']].forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.add('climbing','new');
+      });
+    },
+    () => {
+      setNodeState('nl2','drawn','new');
+      [['nl2','nl1a'],['nl2','nl1b'],['apex','nl2']].forEach(([a,b]) => {
+        const el = edgeEls['edges:'+a+'__'+b];
+        if (el) el.classList.remove('climbing');
+      });
+    }
+  );
+
+  // ── ACT 4: propagation. 0.80..1.0 ─────────────────────────────
+  // A bedrock file changes. An intelligence (LLM) is applied at each node to
+  // decide: is this still right? If yes — stop. If no — rewrite, and decide
+  // which connected nodes are worth checking next. Propagation ripples along
+  // the evidence/tree/webbing graph; most branches terminate, a few rewrite,
+  // and the ripple dies out as soon as conclusions stop changing.
+  //
+  // Intelligence as composable primitive: each LLM call is local, cheap, and
+  // decides its own next hop. The system isn't "blanket refresh" — it's a
+  // branching walk whose shape is itself an act of intelligence.
+
+  const CHANGED_FILE = 'br4';   // ledger.csv changed
+  let act4Artifacts = [];       // DOM elements to clean up on rewind/loop
+
+  // Spawn an amber halo around a node to signal "LLM deciding right now".
+  // The ring's lifecycle is purely visual (~850ms); resolution is a later
+  // event that toggles .thinking → .fine or .rewritten.
+  function spawnThinkingRing(id) {
+    const n = nodeById[id];
+    if (!n) return;
+    const ring = document.createElementNS(svgNS, 'circle');
+    ring.setAttribute('cx', n.x);
+    ring.setAttribute('cy', n.y);
+    ring.setAttribute('r', (n.r || 8) + 2);
+    ring.setAttribute('class', 'thinking-ring on');
+    document.getElementById('pyramid').appendChild(ring);
+    act4Artifacts.push(ring);
+    setTimeout(() => ring.remove(), 900);
+    // Also glow the node while the LLM is in flight
+    const el = nodeEls[id];
+    if (el) {
+      el.classList.add('thinking');
+      setTimeout(() => el.classList.remove('thinking'), 900);
+    }
+  }
+
+  function spawnFineMark(id, textStr = 'checked · fine') {
+    const n = nodeById[id];
+    if (!n) return null;
+    const t = document.createElementNS(svgNS, 'text');
+    t.setAttribute('x', n.x);
+    t.setAttribute('y', (n.y || 100) - ((n.r || 8) + 10));
+    t.setAttribute('class', 'fine-mark on');
+    t.textContent = textStr;
+    document.getElementById('labels').appendChild(t);
+    act4Artifacts.push(t);
+    return t;
+  }
+
+  // Flash an edge briefly in moss — the intelligence just chose this hop.
+  // Works on tree edges, evidence edges, and webbing alike.
+  function rippleEdge(layer, fromId, toId) {
+    const key = fromId + '__' + toId;
+    const p = edgeEls[layer + ':' + key] || edgeEls[layer + ':' + toId + '__' + fromId];
+    if (!p) return;
+    // Ensure it's visible enough to be animated
+    const wasDrawn = p.classList.contains('drawn');
+    if (!wasDrawn) p.classList.add('drawn');
+    p.classList.remove('rippling');    // restart if already playing
+    // force reflow so animation restarts
+    void p.getBoundingClientRect();
+    p.classList.add('rippling');
+    setTimeout(() => p.classList.remove('rippling'), 620);
+  }
+
+  function resolveFine(id, text = 'fine') {
+    spawnFineMark(id, text);
+    setNodeState(id, 'drawn', 'answered', 'fine');
+  }
+
+  function resolveStale(id) {
+    const el = nodeEls[id];
+    if (el) {
+      el.classList.add('rewriting','rewritten');
+      setTimeout(() => el.classList.remove('rewriting'), 1400);
+    }
+    setNodeState(id, 'drawn', 'answered', 'rewritten');
+  }
+
+  function undoAct4Node(id) {
+    setNodeState(id, 'drawn', 'answered');
+    const el = nodeEls[id];
+    if (el) el.classList.remove('rewriting','rewritten','fine','thinking');
+  }
+
+  function clearAct4Artifacts() {
+    act4Artifacts.forEach(el => el.remove());
+    act4Artifacts = [];
+  }
+
+  // ── WAVE 0: the file changes ──────────────────────────────
+  // 0.80 — ledger.csv's hash changes. That's the whole trigger.
+  addEv(0.80,
+    () => { setBedrockState(CHANGED_FILE, 'drawn', 'changed'); },
+    () => {
+      const reusedByNew = NEW_EVIDENCE.some(([_, rr]) => rr === CHANGED_FILE);
+      const reusedByOld = EVIDENCE.some(([_, rr]) => rr === CHANGED_FILE);
+      setBedrockState(CHANGED_FILE, 'drawn', reusedByNew ? 'cited-new' : (reusedByOld ? 'cited' : ''));
+      const el = bedrockEls[CHANGED_FILE];
+      if (el) el.classList.remove('changed');
+    }
+  );
+
+  // ── WAVE 1: the two leaves that cited br4 are stale-checked ──
+  // Intelligence is dispatched to le3 (vs. RAG?) and le4 (royalties?).
+  // Evidence edges flash moss as the LLM call goes out.
+  addEv(0.815,
+    () => {
+      rippleEdge('evidence', 'le3', 'br4');
+      rippleEdge('evidence', 'le4', 'br4');
+      spawnThinkingRing('le3');
+      spawnThinkingRing('le4');
+    },
+    () => { /* rings clean themselves up; artifacts flushed on hardReset */ }
+  );
+  // 0.845 — le4 resolves: royalties? is fine. Ledger's new ratio doesn't
+  // affect the royalty formula — which is the intelligent judgment.
+  addEv(0.845,
+    () => { resolveFine('le4'); },
+    () => { undoAct4Node('le4'); }
+  );
+  // 0.855 — le3 resolves: vs. RAG? is stale. Rewrites. The intelligence
+  // picks next hops — propagate up to Mechanism? (parent), and sideways
+  // to cost? (peer that also cites br5, the other source le3 used).
+  addEv(0.855,
+    () => {
+      resolveStale('le3');
+      rippleEdge('edges', 'l1b1', 'le3');     // tree: up to parent
+      rippleEdge('evidence', 'le5', 'br5');   // lateral: co-cited bedrock
+    },
+    () => { undoAct4Node('le3'); }
+  );
+
+  // ── WAVE 2: from le3's rewrite → l1b1 and le5 ──
+  addEv(0.87,
+    () => {
+      spawnThinkingRing('l1b1');
+      spawnThinkingRing('le5');
+    },
+    () => {}
+  );
+  // le5 (cost?) resolves fine — cost model didn't depend on the ratio
+  addEv(0.895,
+    () => { resolveFine('le5'); },
+    () => { undoAct4Node('le5'); }
+  );
+  // l1b1 (Mechanism?) is stale. The new ratio changes the mechanism writeup.
+  // Intelligence picks: up to l2b (parent), plus webbed peers l1a2 and l1b2
+  // that depend on overlapping context.
+  addEv(0.905,
+    () => {
+      resolveStale('l1b1');
+      rippleEdge('edges', 'l2b', 'l1b1');
+      rippleEdge('web',   'l1a2', 'l1b1');
+      rippleEdge('web',   'l1b1', 'l1b2');
+    },
+    () => { undoAct4Node('l1b1'); }
+  );
+
+  // ── WAVE 3: from l1b1 → {l2b, l1a2, l1b2} ──
+  addEv(0.92,
+    () => {
+      spawnThinkingRing('l2b');
+      spawnThinkingRing('l1a2');
+      spawnThinkingRing('l1b2');
+    },
+    () => {}
+  );
+  // l1a2 (Who builds?) — fine. Builder identity didn't depend on the ledger.
+  addEv(0.945,
+    () => { resolveFine('l1a2'); },
+    () => { undoAct4Node('l1a2'); }
+  );
+  // l1b2 (Economics?) — stale. Ripples laterally to l1c1 (Who benefits?),
+  // its webbed peer.
+  addEv(0.952,
+    () => {
+      resolveStale('l1b2');
+      rippleEdge('web', 'l1b2', 'l1c1');
+    },
+    () => { undoAct4Node('l1b2'); }
+  );
+  // l2b (What makes it different?) — stale. Propagates to apex and l2a.
+  addEv(0.96,
+    () => {
+      resolveStale('l2b');
+      rippleEdge('edges', 'apex', 'l2b');
+      rippleEdge('web',   'l2a',  'l2b');
+    },
+    () => { undoAct4Node('l2b'); }
+  );
+
+  // ── WAVE 4: from {l1b2, l2b} → {l1c1, apex, l2a} ──
+  addEv(0.965,
+    () => {
+      spawnThinkingRing('l1c1');
+      spawnThinkingRing('l2a');
+      spawnThinkingRing('apex');
+    },
+    () => {}
+  );
+  // All three resolve fine — the ripple is dying out.
+  // The apex's judgment is the DADBEAR moment: three L1s rewrote, one L2
+  // rewrote, but the top-level answer still reads the same.
+  addEv(0.99,
+    () => {
+      resolveFine('l1c1');
+      resolveFine('l2a');
+      resolveFine('apex', 'conclusion unchanged · stop');
+    },
+    () => {
+      undoAct4Node('l1c1');
+      undoAct4Node('l2a');
+      undoAct4Node('apex');
+    }
+  );
+
+  // Sort events for forward/backward evaluation
+  EVENTS.sort((a,b) => a.at - b.at);
+
+  // ── Transport control ──────────────────────────────────────
+  let t = 0;            // normalized 0..1
+  let playing = true;
+  let lastMs = performance.now();
+  let currentAct = 0;
+
+  const tlFill = document.getElementById('tlFill');
+  const tlThumb = document.getElementById('tlThumb');
+  const tlActs = document.getElementById('tlActs');
+  const tlAct = document.getElementById('tlAct');
+  const playBtn = document.getElementById('playBtn');
+  const scrub = document.getElementById('scrub');
+  const actNumEl = document.getElementById('actNum');
+  const captionHead = document.getElementById('captionHead');
+  const captionSub = document.getElementById('captionSub');
+
+  // Act markers on the scrub
+  [0.22, 0.58, 0.80].forEach(p => {
+    const m = document.createElement('div');
+    m.className = 'tl-act-mark';
+    m.style.left = (p * 100) + '%';
+    tlActs.appendChild(m);
+  });
+
+  function setT(newT) {
+    newT = Math.max(0, Math.min(1, newT));
+    if (newT === t) return;
+    // Apply all events between old t and new t.
+    // Forward: fire events with at > t (the state BEFORE we began this move) up to and including newT,
+    // but also fire events at exactly 0 the first time we leave 0 — and fire events at exactly t
+    // when scrubbing forward from a freshly-reset state.
+    if (newT > t) {
+      EVENTS.forEach(ev => {
+        // include events at t===0 when we're stepping off 0 for the first time this cycle
+        if ((ev.at > t && ev.at <= newT) || (t === 0 && ev.at === 0)) ev.do();
+      });
+    } else {
+      [...EVENTS].reverse().forEach(ev => { if (ev.at <= t && ev.at > newT) ev.undo(); });
+    }
+    t = newT;
+    tlFill.style.width = (t * 100) + '%';
+    tlThumb.style.left = (t * 100) + '%';
+    tlFill.classList.remove('act-3','act-4');
+    if (t >= 0.80) tlFill.classList.add('act-4');
+    else if (t >= 0.58) tlFill.classList.add('act-3');
+
+    // Update caption
+    const act = ACTS.findIndex(a => t >= a.startPct && t < a.endPct + 0.001);
+    const idx = act === -1 ? ACTS.length - 1 : act;
+    if (idx !== currentAct) {
+      currentAct = idx;
+      // Act 1 waits for the apex-pop animation before the caption wipes in
+      showCaption(ACTS[idx], idx === 0 ? 900 : 0);
+      tlAct.textContent = ['I · blueprint','II · evidence','III · the next question','IV · propagation'][idx];
+    }
+  }
+
+  // Caption animation
+  let captionTimer = null;
+  function showCaption(act, extraDelay = 0) {
+    actNumEl.textContent = act.num;
+    actNumEl.classList.remove('in','plum','cyan');
+    if (act.color) actNumEl.classList.add(act.color);
+    captionHead.innerHTML = '';
+    captionSub.innerHTML = '';
+
+    // Slight delay before fading in
+    clearTimeout(captionTimer);
+    captionTimer = setTimeout(() => {
+      actNumEl.classList.add('in');
+      // Split head and sub into word-wiping spans
+      const headSpan = document.createElement('span');
+      headSpan.className = 'wipe';
+      headSpan.innerHTML = act.head;
+      captionHead.appendChild(headSpan);
+
+      const subSpan = document.createElement('span');
+      subSpan.className = 'wipe';
+      subSpan.innerHTML = act.sub;
+      captionSub.appendChild(subSpan);
+
+      requestAnimationFrame(() => {
+        headSpan.classList.add('in');
+        setTimeout(() => subSpan.classList.add('in'), 260);
+      });
+    }, 120 + extraDelay);
+  }
+
+  // Initial caption — wait for the apex to pop in first (see apex-pop animation, 900ms)
+  showCaption(ACTS[0], 900);
+
+  // Fire all events scheduled at exactly t=0 so the opening state (apex drawn, etc.) is visible on load.
+  EVENTS.forEach(ev => { if (ev.at === 0) ev.do(); });
+
+  // Animation loop
+  function loop(ms) {
+    const dt = ms - lastMs;
+    lastMs = ms;
+    if (playing) {
+      const step = dt / durationMs();
+      let next = t + step;
+      if (next >= 1) {
+        if (TWEAKS.loop === 'loop') {
+          // Hold the finished state briefly, then reset
+          if (t < 1) setT(1);
+          // pause on end for a moment
+          setTimeout(() => {
+            // reset all states
+            hardReset();
+            setT(0.0001);
+            setT(0);
+          }, 1600);
+          playing = false;
+          playBtn.textContent = '↺';
+          setTimeout(() => {
+            if (TWEAKS.loop === 'loop') { playing = true; playBtn.textContent = '❚❚'; }
+          }, 1800);
+          requestAnimationFrame(loop);
+          return;
+        } else {
+          next = 1;
+          playing = false;
+          playBtn.textContent = '▶';
+        }
+      }
+      setT(next);
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function hardReset() {
+    Object.values(nodeEls).forEach(el => {
+      const base = el.className.baseVal.split(' ').filter(c => !['drawn','answered','rewriting','rewritten','fine'].includes(c));
+      el.setAttribute('class', base.join(' '));
+    });
+    Object.values(bedrockEls).forEach(el => {
+      const base = el.className.baseVal.split(' ').filter(c => !['drawn','cited','cited-new','changed'].includes(c));
+      el.setAttribute('class', base.join(' '));
+    });
+    NODES.forEach(n => {
+      if (n._label) {
+        const base = n._label.className.baseVal.split(' ').filter(c => !['drawn','answered'].includes(c));
+        n._label.setAttribute('class', base.join(' '));
+      }
+    });
+    BEDROCK.forEach(b => {
+      if (b._label) {
+        const base = b._label.className.baseVal.split(' ').filter(c => !['drawn','cited','cited-new'].includes(c));
+        b._label.setAttribute('class', base.join(' '));
+      }
+    });
+    Object.values(edgeEls).forEach(p => {
+      // strip transient classes only — 'new' is structural on evidence/web and
+      // gets re-added dynamically on tree edges during climb events
+      p.classList.remove('drawn','climbing');
+    });
+    apexPulse.classList.remove('on');
+    // Remove any Act 4-spawned ephemera (thinking rings, check rings, fine marks)
+    document.querySelectorAll('.check-ring').forEach(el => el.remove());
+    document.querySelectorAll('.thinking-ring').forEach(el => el.remove());
+    document.querySelectorAll('.fine-mark').forEach(el => el.remove());
+    // Strip transient node state left behind by Act 4
+    Object.values(nodeEls).forEach(el => {
+      el.classList.remove('thinking','rewriting');
+    });
+    // Strip transient edge classes
+    Object.values(edgeEls).forEach(el => {
+      el.classList.remove('rippling');
+    });
+    act4Artifacts = [];
+    t = 0;
+    currentAct = -1;
+    // Re-fire the at=0 events so the opening state is rendered after reset.
+    EVENTS.forEach(ev => { if (ev.at === 0) ev.do(); });
+  }
+
+  // Controls
+  playBtn.addEventListener('click', () => {
+    if (t >= 0.999) { hardReset(); setT(0); }
+    playing = !playing;
+    playBtn.textContent = playing ? '❚❚' : '▶';
+    lastMs = performance.now();
+  });
+
+  let dragging = false;
+  function pctFromEvent(e) {
+    const r = scrub.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    return Math.max(0, Math.min(1, x / r.width));
+  }
+  scrub.addEventListener('mousedown', (e) => {
+    dragging = true; playing = false; playBtn.textContent = '▶';
+    const pct = pctFromEvent(e);
+    if (pct < t) { hardReset(); setT(0); }
+    setT(pct);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const pct = pctFromEvent(e);
+    if (pct < t) { hardReset(); setT(0); }
+    setT(pct);
+  });
+  window.addEventListener('mouseup', () => dragging = false);
+  scrub.addEventListener('touchstart', (e) => {
+    dragging = true; playing = false; playBtn.textContent = '▶';
+    const pct = pctFromEvent(e);
+    if (pct < t) { hardReset(); setT(0); }
+    setT(pct);
+  });
+  window.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    setT(pctFromEvent(e));
+  });
+  window.addEventListener('touchend', () => dragging = false);
+
+  document.getElementById('replayAll').addEventListener('click', (e) => {
+    e.preventDefault();
+    hardReset();
+    setT(0);
+    playing = true;
+    playBtn.textContent = '❚❚';
+    lastMs = performance.now();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Labels toggle helper
+  function applyLabelsVisibility() {
+    document.querySelectorAll('.node-label, .bedrock-label').forEach(el => {
+      el.style.display = TWEAKS.labels === 'off' ? 'none' : '';
+    });
+  }
+  applyLabelsVisibility();
+
+  // ── Tweaks wiring ──────────────────────────────────────────
+  const panel = document.getElementById('tweaks');
+  window.addEventListener('message', (e) => {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === '__activate_edit_mode') panel.classList.add('on');
+    if (e.data.type === '__deactivate_edit_mode') panel.classList.remove('on');
+  });
+  try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch (_) {}
+
+  // Initialize segmented button actives from TWEAKS
+  document.querySelectorAll('.seg').forEach(seg => {
+    const key = seg.dataset.key;
+    seg.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.v === TWEAKS[key]);
+      b.addEventListener('click', () => {
+        TWEAKS[key] = b.dataset.v;
+        seg.querySelectorAll('button').forEach(bb => bb.classList.toggle('active', bb === b));
+        if (key === 'labels') applyLabelsVisibility();
+        try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: TWEAKS[key] } }, '*'); } catch (_) {}
+      });
+    });
+  });
+
+  </script>
+
+</body>
+</html>

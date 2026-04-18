@@ -1,0 +1,22 @@
+{
+	# Temps sets $PORT; fall back to 80 for local docker runs.
+	auto_https off
+}
+
+:{$PORT:80} {
+	root * /usr/share/caddy
+	encode zstd gzip
+	file_server
+	# Long cache for the font preconnect; short cache for the HTML itself
+	# so content updates are visible without a forced reload.
+	@html path *.html /
+	header @html Cache-Control "public, max-age=60, must-revalidate"
+	header /* Cache-Control "public, max-age=300"
+	# Basic security headers. CSP is permissive enough for inline styles
+	# (the page uses inline <style> and <script>) and Google Fonts.
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "interest-cohort=()"
+	}
+}
