@@ -7,13 +7,20 @@ FROM caddy:2-alpine AS caddy-src
 
 FROM alpine:3.19
 
-# ca-certificates for TLS, mailcap so Caddy can guess MIME types
-RUN apk add --no-cache ca-certificates mailcap \
+# ca-certificates for TLS, mailcap so Caddy can guess MIME types,
+# libcap so we can strip file capabilities from the Caddy binary.
+RUN apk add --no-cache ca-certificates libcap mailcap \
     && mkdir -p /config/caddy /data/caddy /etc/caddy /usr/share/caddy
 
 COPY --from=caddy-src /usr/bin/caddy /usr/bin/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY index.html /usr/share/caddy/index.html
+
+# The binary from caddy:alpine carries cap_net_bind_service as an extended
+# attribute, which survives COPY --from. Temps runs containers with
+# no_new_privs, so the kernel refuses to exec any binary with file caps.
+# Strip them — we bind to 8080 and don't need the cap anyway.
+RUN setcap -r /usr/bin/caddy || true
 
 # Non-privileged port: no CAP_NET_BIND_SERVICE required, no clash with
 # Temps' no_new_privs runtime.
